@@ -10,7 +10,9 @@ data class NoteEntity(
     val body: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val isPinned: Boolean = false,
+    val isFavorite: Boolean = false
 )
 
 @Entity(tableName = "note_versions", indices = [Index("noteId"), Index("savedAt")])
@@ -38,7 +40,7 @@ data class VaultItemEntity(
 
 @Dao
 interface NotesDao {
-    @Query("SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY isPinned DESC, updatedAt DESC")
     fun observeNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
     @Query("SELECT * FROM notes WHERE id=:id") suspend fun getNote(id: Long): NoteEntity?
     @Query("SELECT * FROM notes") suspend fun getAllNotes(): List<NoteEntity>
@@ -64,7 +66,7 @@ interface NotesDao {
     @Delete suspend fun deleteVault(item: VaultItemEntity)
 }
 
-@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 2, exportSchema = false)
+@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 3, exportSchema = false)
 abstract class ShijiDatabase : RoomDatabase() {
     abstract fun dao(): NotesDao
     companion object {
@@ -73,11 +75,17 @@ abstract class ShijiDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE notes ADD COLUMN deletedAt INTEGER")
             }
         }
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+            }
+        }
         @Volatile private var INSTANCE: ShijiDatabase? = null
         fun get(context: android.content.Context): ShijiDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(context.applicationContext, ShijiDatabase::class.java, "shiji_local.db")
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build().also { INSTANCE = it }
             }
     }

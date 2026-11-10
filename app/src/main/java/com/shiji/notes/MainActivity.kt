@@ -65,7 +65,8 @@ fun ShijiApp() {
     val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
     var noteQuery by remember { mutableStateOf("") }
-    val visibleNotes = remember(notes, noteQuery) { notes.filter { it.matchesQuery(noteQuery) } }
+    var favoritesOnly by remember { mutableStateOf(false) }
+    val visibleNotes = remember(notes, noteQuery, favoritesOnly) { notes.filter { it.matchesQuery(noteQuery) && (!favoritesOnly || it.isFavorite) } }
     val rawVault by dao.observeVault().collectAsState(initial = emptyList())
     val vault = remember(rawVault, masterKey) {
         masterKey?.let { key -> rawVault.map { item ->
@@ -202,16 +203,29 @@ fun ShijiApp() {
                                 label = { Text("搜索标题或正文（解锁后本地搜索）") },
                                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
                             )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text("全部 ${notes.size}") })
+                                FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = true }, label = { Text("收藏 ${notes.count { it.isFavorite }}") })
+                                Spacer(Modifier.weight(1f))
+                                Text("置顶优先", color = Muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                            }
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(visibleNotes) { note ->
                                     Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth().clickable { selected = note; showEditor = true }) {
                                         Column(Modifier.padding(16.dp)) {
-                                            Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold)
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                                if (note.isPinned) Text("已置顶", color = Cyan, style = MaterialTheme.typography.labelSmall)
+                                            }
                                             Text(note.body, color = Muted, maxLines = 2)
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text("更新于 ${date(note.updatedAt)}", color = Cyan, style = MaterialTheme.typography.labelSmall)
-                                                TextButton(onClick = { scope.launch { rawNotes.firstOrNull { it.id == note.id }?.let { dao.updateNote(it.copy(deletedAt = System.currentTimeMillis())) } } }) {
-                                                    Icon(Icons.Default.Delete, contentDescription = null); Text("移入回收站")
+                                                Text("更新于 ${date(note.updatedAt)}", color = Cyan, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                                                Row {
+                                                    TextButton(onClick = { scope.launch { rawNotes.firstOrNull { it.id == note.id }?.let { dao.updateNote(it.copy(isPinned = !it.isPinned)) } } }) { Text(if (note.isPinned) "取消置顶" else "置顶") }
+                                                    TextButton(onClick = { scope.launch { rawNotes.firstOrNull { it.id == note.id }?.let { dao.updateNote(it.copy(isFavorite = !it.isFavorite)) } } }) { Text(if (note.isFavorite) "已收藏" else "收藏", color = if (note.isFavorite) Cyan else Muted) }
+                                                    TextButton(onClick = { scope.launch { rawNotes.firstOrNull { it.id == note.id }?.let { dao.updateNote(it.copy(deletedAt = System.currentTimeMillis())) } } }) {
+                                                        Icon(Icons.Default.Delete, contentDescription = null); Text("删除")
+                                                    }
                                                 }
                                             }
                                         }
