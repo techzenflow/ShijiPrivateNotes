@@ -11,8 +11,8 @@ android {
         applicationId = "com.shiji.notes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.1-beta.2"
+        versionCode = 4
+        versionName = "1.0.1-beta.3"
     }
     buildFeatures { compose = true }
     compileOptions {
