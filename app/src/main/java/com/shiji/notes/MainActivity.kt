@@ -25,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import com.shiji.notes.data.*
 import com.shiji.notes.security.Security
-import kotlinx.coroutines.launch\nimport kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
