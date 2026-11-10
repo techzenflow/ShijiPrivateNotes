@@ -2,6 +2,12 @@
 
 本文件记录每一次已提交的项目修改。最新版本置顶。
 
+## 1.0.1-beta.6 — 2026-11-10
+- 恢复 Beta 版本的 GitHub Pre-release 标记；正式版本使用普通 Release。
+- 将发布流程改为由版本 tag 驱动，自动识别 Beta / Stable。
+- Beta 不覆盖正式版 Latest；正式版发布时设为 Latest。
+- Android versionCode 从 6 升至 7。
+
 ## 1.0.1-beta.5 — 2026-11-10
 - 统一发布资产命名：`ShijiPrivateNotes-{version}-Android-{arch}.apk`。
 - 当前单一 Android APK 标记为 `universal`，避免误标为单一 CPU 架构。
