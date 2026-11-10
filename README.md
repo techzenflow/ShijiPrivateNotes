@@ -24,7 +24,8 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 ## 版本与变更日志规则
 - 每一次代码/功能/界面/修复修改，都必须同时递增 `versionCode` 和 `versionName`，不得复用已发布版本号。
 - 测试版本使用 `1.0.x-beta.n`，Git tag 使用 `v1.0.x-beta.n`；每次 Beta 修改递增 n。
-- 正式版本使用稳定语义版本号（例如 `1.0.0`），正式版本不得标记为 prerelease。
+- 正式版本使用稳定语义版本号（例如 `1.0.0`）。
+- 所有 Beta 和正式版 GitHub Release 均使用普通 Release，**不勾选 Pre-release**。Beta 仍须在标题和日志中明确标注 Beta，普通 Release 不代表通过正式版验收。
 - 每次修改都要更新 `CHANGELOG.md`（总日志）及 `docs/CHANGELOG_BETA.md`（测试版日志）。
 - 正式发布时还必须更新 `docs/CHANGELOG_STABLE.md`；Beta 内容不得自动混入正式版日志。
 - GitHub Release 必须使用唯一版本 tag，并在 Release 正文写明该版本变更、测试状态和已知问题。
@@ -36,4 +37,4 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 - [正式版变更记录](docs/CHANGELOG_STABLE.md)
 
 ## GitHub Actions
-推送到 main/master 后自动构建 APK，并按 workflow 配置创建版本化 GitHub Release。测试版 Release 标记为 Pre-release；正式版使用独立稳定版本 tag。
+推送到 main/master 后自动编译 APK，并按版本号创建 GitHub 普通 Release（不使用 Pre-release 标记）。最新 Beta 也会作为 Latest 显示。
