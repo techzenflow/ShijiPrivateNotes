@@ -6,6 +6,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -34,6 +36,8 @@ import com.shiji.notes.data.*
 import com.shiji.notes.security.Security
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -72,6 +76,14 @@ fun ShijiApp() {
     var generatedPassword by remember { mutableStateOf("") }
     var editingVaultId by remember { mutableStateOf<Long?>(null) }
     var vaultQuery by remember { mutableStateOf("") }
+    var showBackupPasswordDialog by remember { mutableStateOf(false) }
+    var exportPassword by remember { mutableStateOf("") }
+    var pendingExportPassword by remember { mutableStateOf("") }
+    var pendingRestoreBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var restorePassword by remember { mutableStateOf("") }
+    var showRestorePasswordDialog by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+    var backupStatus by remember { mutableStateOf("") }
     var pendingDeleteVaultId by remember { mutableStateOf<Long?>(null) }
     var selectedVersion by remember { mutableStateOf<NoteVersionEntity?>(null) }
     val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
@@ -87,6 +99,39 @@ fun ShijiApp() {
                 site = Security.decryptNoteField(key, item.site)
             )
         } } ?: emptyList()
+    }
+    val createBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) {
+            val password = pendingExportPassword
+            pendingExportPassword = ""
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val key = masterKey ?: throw IllegalStateException("主密钥不可用")
+                    val backupBytes = BackupCodec.create(dao.getAllNotes(), dao.getAllVersions(), dao.observeVault().first(), key, password.toCharArray())
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(backupBytes) }
+                        ?: throw IllegalStateException("无法写入备份文件")
+                    withContext(Dispatchers.Main) { backupStatus = "加密备份已保存。请妥善保管备份密码。" }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { backupStatus = "备份失败：" + (e.message ?: "未知错误") }
+                }
+            }
+        } else pendingExportPassword = ""
+    }
+    val openBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            try {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { readBackupBytes(it, 100 * 1024 * 1024) }
+                    ?: throw IllegalStateException("无法读取备份文件")
+                withContext(Dispatchers.Main) {
+                    pendingRestoreBytes = bytes
+                    restorePassword = ""
+                    showRestorePasswordDialog = true
+                    backupStatus = "文件已读取，请输入创建备份时设置的密码。"
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { backupStatus = "读取失败：" + (e.message ?: "文件无效") }
+            }
+        }
     }
     val visibleVault = remember(vault, vaultQuery) {
         vault.filter { it.label.contains(vaultQuery, ignoreCase = true) || it.site.contains(vaultQuery, ignoreCase = true) }
