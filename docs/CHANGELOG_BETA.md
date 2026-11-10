@@ -1,6 +1,11 @@
 # 测试版更新日志（Beta）
 
-仅记录 Beta 测试版本。每次 Beta 修改均新增版本号和记录，不覆盖历史条目。Beta Release 使用普通 GitHub Release，不勾选 Pre-release。
+仅记录 Beta 测试版本。每次 Beta 修改均新增版本号和记录，不覆盖历史条目。
+
+## 1.0.1-beta.6 — 2026-11-10
+- 恢复 GitHub Pre-release 标记。
+- 发布由版本 tag 驱动；Beta 不覆盖正式版 Latest。
+- Android versionCode：7。
 
 ## 1.0.1-beta.5 — 2026-11-10
 - 发布文件采用统一格式：`ShijiPrivateNotes-{version}-Android-{arch}.apk`。
@@ -28,7 +33,7 @@
 - 接入 BiometricPrompt 与 Android Keystore 指纹密钥封装流程。
 
 ## Beta 发布规则
-- 每次代码修改递增 Beta 序号和 Android versionCode。
-- 所有版本使用普通 GitHub Release，不使用 Pre-release 标记。
+- 每次应用代码修改递增 Beta 序号和 versionCode。
+- Beta Release 必须标记 Pre-release；正式版不得标记 Pre-release。
 - 文件名包含项目名、版本号、平台、架构；附 SHA-256 校验文件。
 - Release 正文写明变更、文件说明、测试状态及已知问题。
