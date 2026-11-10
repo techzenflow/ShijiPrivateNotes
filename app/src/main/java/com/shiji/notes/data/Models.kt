@@ -1,6 +1,7 @@
 package com.shiji.notes.data
 
 import androidx.room.*
+import androidx.room.migration.Migration
 
 @Entity(tableName = "notes")
 data class NoteEntity(
@@ -8,7 +9,8 @@ data class NoteEntity(
     val title: String,
     val body: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val deletedAt: Long? = null
 )
 
 @Entity(tableName = "note_versions", indices = [Index("noteId"), Index("savedAt")])
@@ -36,13 +38,15 @@ data class VaultItemEntity(
 
 @Dao
 interface NotesDao {
-    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY updatedAt DESC")
     fun observeNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
     @Query("SELECT * FROM notes WHERE id=:id") suspend fun getNote(id: Long): NoteEntity?
-    @Query("SELECT * FROM notes") suspend fun getAllNotes(): List<NoteEntity>
+    @Query("SELECT * FROM notes") suspend fun getAllNotes()
+    @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC") fun observeTrash(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>: List<NoteEntity>
     @Insert suspend fun insertNote(note: NoteEntity): Long
     @Update suspend fun updateNote(note: NoteEntity)
     @Delete suspend fun deleteNote(note: NoteEntity)
+    @Query("DELETE FROM note_versions WHERE noteId=:id") suspend fun deleteVersions(id: Long)
     @Query("SELECT * FROM note_versions WHERE noteId=:id ORDER BY versionNo DESC")
     fun observeVersions(id: Long): kotlinx.coroutines.flow.Flow<List<NoteVersionEntity>>
     @Query("SELECT * FROM note_versions WHERE noteId=:id ORDER BY versionNo DESC")
@@ -60,14 +64,20 @@ interface NotesDao {
     @Delete suspend fun deleteVault(item: VaultItemEntity)
 }
 
-@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 1, exportSchema = false)
+@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 2, exportSchema = false)
 abstract class ShijiDatabase : RoomDatabase() {
     abstract fun dao(): NotesDao
     companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN deletedAt INTEGER")
+            }
+        }
         @Volatile private var INSTANCE: ShijiDatabase? = null
         fun get(context: android.content.Context): ShijiDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(context.applicationContext, ShijiDatabase::class.java, "shiji_local.db")
+                    .addMigrations(MIGRATION_1_2)
                     .build().also { INSTANCE = it }
             }
     }

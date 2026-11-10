@@ -173,6 +173,7 @@ fun ShijiApp() {
                         NavChip("笔记", page == "notes") { page = "notes" }
                         NavChip("时间线", page == "timeline") { page = "timeline" }
                         NavChip("密码库", page == "vault") { page = "vault" }
+                        NavChip("回收站", page == "trash") { page = "trash" }
                     }
                     Spacer(Modifier.height(12.dp))
                     if (error.isNotBlank()) Text(error, color=Cyan)
@@ -196,7 +197,12 @@ fun ShijiApp() {
                                         Column(Modifier.padding(16.dp)) {
                                             Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold)
                                             Text(note.body, color = Muted, maxLines = 2)
-                                            Text("更新于 ${date(note.updatedAt)}", color = Cyan, style = MaterialTheme.typography.labelSmall)
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("更新于 ${date(note.updatedAt)}", color = Cyan, style = MaterialTheme.typography.labelSmall)
+                                                TextButton(onClick = { scope.launch { rawNotes.firstOrNull { it.id == note.id }?.let { dao.updateNote(it.copy(deletedAt = System.currentTimeMillis())) } } }) {
+                                                    Icon(Icons.Default.Delete, contentDescription = null); Text("移入回收站")
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -222,6 +228,27 @@ fun ShijiApp() {
                                 dao.updateNote(current.decryptFields(key).copy(title=v.title, body=v.body, updatedAt=now).encryptFields(key))
                             }
                         }) } }
+                        "trash" -> {
+                            val trash by dao.observeTrash().collectAsState(initial = emptyList())
+                            val key = masterKey
+                            Text("回收站", style = MaterialTheme.typography.titleLarge)
+                            Text("删除的笔记会保留在本机，可恢复或永久删除", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            LazyColumn {
+                                items(trash) { raw ->
+                                    val note = key?.let { runCatching { raw.decryptFields(it) }.getOrNull() }
+                                    if (note != null) Card(Modifier.fillMaxWidth().padding(vertical = 5.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
+                                        Column(Modifier.padding(14.dp)) {
+                                            Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold)
+                                            Text(note.body, color = Muted, maxLines = 2)
+                                            Row {
+                                                TextButton(onClick = { scope.launch { dao.updateNote(raw.copy(deletedAt = null)) } }) { Text("恢复") }
+                                                TextButton(onClick = { scope.launch { dao.deleteVersions(raw.id); dao.deleteNote(raw) } }) { Text("永久删除", color = Color(0xFFFF8792)) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         "vault" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("私密账号", style = MaterialTheme.typography.titleLarge)

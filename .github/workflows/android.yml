@@ -99,7 +99,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && contains(steps.version.outputs.name, '-beta.'))
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.name }}
+          tag_name: ${{ github.ref_name }}
           name: 时迹私人笔记 v${{ steps.version.outputs.name }}
           body: |
             ## 本次更新
