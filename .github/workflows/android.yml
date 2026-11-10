@@ -42,13 +42,13 @@ jobs:
 
       - name: Rename APK for mobile download
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/时迹私人笔记-安卓测试版.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: 时迹私人笔记-安卓测试版
-          path: app/build/outputs/apk/debug/时迹私人笔记-安卓测试版.apk
+          name: ShijiPrivateNotes-Android-Test
+          path: app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -59,4 +59,4 @@ jobs:
           name: 时迹私人笔记 - 安卓测试版
           prerelease: true
           make_latest: false
-          files: app/build/outputs/apk/debug/时迹私人笔记-安卓测试版.apk
+          files: app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk
