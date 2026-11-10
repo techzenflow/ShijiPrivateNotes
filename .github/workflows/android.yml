@@ -3,7 +3,6 @@ name: Android APK and Tests
 on:
   push:
     branches: [ "main", "master" ]
-    tags: [ "v*" ]
   pull_request:
   workflow_dispatch:
 
@@ -61,19 +60,35 @@ jobs:
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Restore signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: shiji-debug-signing-key-v1
+      - name: Prepare persistent release signing key
+        shell: bash
+        env:
+          SHIJI_KEYSTORE_BASE64: ${{ secrets.SHIJI_KEYSTORE_BASE64 }}
+          SHIJI_KEYSTORE_PASSWORD: ${{ secrets.SHIJI_KEYSTORE_PASSWORD }}
+          SHIJI_KEY_ALIAS: ${{ secrets.SHIJI_KEY_ALIAS }}
+          SHIJI_KEY_PASSWORD: ${{ secrets.SHIJI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in SHIJI_KEYSTORE_BASE64 SHIJI_KEYSTORE_PASSWORD SHIJI_KEY_ALIAS SHIJI_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          echo "$SHIJI_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/shiji-release.jks"
+          test -s "$RUNNER_TEMP/shiji-release.jks"
+          echo "SHIJI_KEYSTORE_PATH=$RUNNER_TEMP/shiji-release.jks" >> "$GITHUB_ENV"
+          echo "SHIJI_KEYSTORE_PASSWORD=$SHIJI_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SHIJI_KEY_ALIAS=$SHIJI_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "SHIJI_KEY_PASSWORD=$SHIJI_KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Run unit tests
         run: gradle --no-daemon testDebugUnitTest
       - name: Build APK
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon assembleRelease
       - name: Verify APK signature and package metadata
         run: |
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          APK="app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.shiji.notes'"
       - name: Name APK and generate checksum
         shell: bash

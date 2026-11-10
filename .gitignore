@@ -1,0 +1,3 @@
+# Local Android signing material - never commit
+*.jks
+*.keystore

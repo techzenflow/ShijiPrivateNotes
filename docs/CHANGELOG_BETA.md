@@ -1,5 +1,11 @@
 # 测试版更新日志（Beta）
 
+## 1.0.1-beta.12 — 2026-11-10
+- 引入持久 Release 签名配置，需在 GitHub Actions Secrets 中配置签名材料。
+- 不再使用 Debug keystore cache 对发布 APK 签名。
+- versionCode：13。
+
+
 ## 1.0.1-beta.11 — 2026-11-10
 - 修正 Release 标签及重复发布逻辑。
 - 加密密码库名称和网站/App 元数据，解锁时自动迁移旧记录。

@@ -11,9 +11,23 @@ android {
         applicationId = "com.shiji.notes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.1-beta.11"
+        versionCode = 13
+        versionName = "1.0.1-beta.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("SHIJI_KEYSTORE_PATH") ?: "missing-release-key.jks")
+            storePassword = System.getenv("SHIJI_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("SHIJI_KEY_ALIAS")
+            keyPassword = System.getenv("SHIJI_KEY_PASSWORD")
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
     }
     buildFeatures { compose = true }
     testOptions { unitTests.isIncludeAndroidResources = true }

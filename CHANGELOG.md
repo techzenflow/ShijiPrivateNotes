@@ -1,5 +1,11 @@
 # 更新日志（全部版本）
 
+## 1.0.1-beta.12 — 2026-11-10
+- 发布 APK 改为使用持久 Release 签名密钥，不再依赖可清理的 Debug keystore 缓存。
+- 缺少签名 Secrets 时自动阻止 APK 发布，避免生成不能保证覆盖安装的安装包。
+- Android versionCode：13。
+
+
 ## 1.0.1-beta.11 — 2026-11-10
 - 修复 GitHub Release 标签生成：始终使用与版本号一致的 `v1.0.1-beta.11`，避免错误发布到 `main` 标签。
 - 每次仅由 main 分支发布 Release，避免自动创建版本标签后重复触发发布并混入旧 APK。
