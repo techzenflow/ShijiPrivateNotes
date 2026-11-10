@@ -94,7 +94,12 @@ fun ShijiApp() {
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
     var noteQuery by remember { mutableStateOf("") }
     var favoritesOnly by remember { mutableStateOf(false) }
-    val visibleNotes = remember(notes, noteQuery, favoritesOnly) { notes.filter { it.matchesQuery(noteQuery) && (!favoritesOnly || it.isFavorite) } }
+    var selectedCategory by remember { mutableStateOf("") }
+    val categories = remember(notes) { notes.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
+    val visibleNotes = remember(notes, noteQuery, favoritesOnly, selectedCategory) {
+        notes.filter { it.matchesQuery(noteQuery) && (!favoritesOnly || it.isFavorite) &&
+            (selectedCategory.isBlank() || it.category.equals(selectedCategory, ignoreCase = true)) }
+    }
     val rawVault by dao.observeVault().collectAsState(initial = emptyList())
     val vault = remember(rawVault, masterKey) {
         masterKey?.let { key -> rawVault.map { item ->
@@ -273,6 +278,14 @@ fun ShijiApp() {
                                 FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = true }, label = { Text("收藏 ${notes.count { it.isFavorite }}") })
                                 Spacer(Modifier.weight(1f))
                                 Text("置顶优先", color = Muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                            }
+                            if (categories.isNotEmpty()) {
+                                Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    FilterChip(selected = selectedCategory.isBlank(), onClick = { selectedCategory = "" }, label = { Text("全部分类") })
+                                    categories.forEach { categoryName ->
+                                        FilterChip(selected = selectedCategory == categoryName, onClick = { selectedCategory = if (selectedCategory == categoryName) "" else categoryName }, label = { Text(categoryName) })
+                                    }
+                                }
                             }
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(visibleNotes) { note ->
