@@ -11,6 +11,7 @@ import com.shiji.notes.data.NoteEntity
 import com.shiji.notes.data.NoteVersionEntity
 import com.shiji.notes.data.encryptFields
 import com.shiji.notes.data.decryptFields
+import com.shiji.notes.data.matchesQuery
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -69,3 +70,14 @@ class SecurityTest {
         assertNull(Security.unlock(context, "wrong password".toCharArray()))
     }
 }
+
+    @Test fun decryptedNotesCanBeSearchedInMemory() {
+        val note = NoteEntity(title="Private Project", body="Contains a unique phrase", createdAt=1, updatedAt=2)
+        val encrypted = note.encryptFields(key)
+        assertFalse(encrypted.matchesQuery("unique phrase"))
+        val decrypted = encrypted.decryptFields(key)
+        assertTrue(decrypted.matchesQuery("unique phrase"))
+        assertTrue(decrypted.matchesQuery("PRIVATE"))
+        assertFalse(decrypted.matchesQuery("missing"))
+        assertTrue(decrypted.matchesQuery("   "))
+    }
