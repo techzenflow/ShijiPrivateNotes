@@ -75,11 +75,11 @@ fun ShijiApp() {
                             configured = true
                             masterKey = Security.unlock(context, masterInput.toCharArray())
                             unlocked = masterKey != null
-                            if (masterKey != null) migrateLegacyNotes(dao, masterKey!!)
+                            if (masterKey != null) scope.launch { migrateLegacyNotes(dao, masterKey!!) }
                         } else {
                             masterKey = Security.unlock(context, masterInput.toCharArray())
                             unlocked = masterKey != null
-                            if (!unlocked) error = "主密码不正确" else masterKey?.let { migrateLegacyNotes(dao, it) }
+                            if (!unlocked) error = "主密码不正确" else masterKey?.let { key -> scope.launch { migrateLegacyNotes(dao, key) } }
                         }
                         masterInput = ""
                     } catch (e: Exception) { error = e.message ?: "设置失败" }
@@ -100,7 +100,7 @@ fun ShijiApp() {
                                                 val c = result.cryptoObject?.cipher ?: throw IllegalStateException("认证结果无效")
                                                 masterKey = Security.finishBiometricUnlock(context, c)
                                                 unlocked = true
-                                                migrateLegacyNotes(dao, masterKey!!)
+                                                scope.launch { migrateLegacyNotes(dao, masterKey!!) }
                                                 error = ""
                                             } catch (e: Exception) {
                                                 error = "指纹密钥失效，请使用主密码登录后重新启用"
