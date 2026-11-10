@@ -77,6 +77,7 @@ jobs:
           done
           echo "$SHIJI_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/shiji-release.jks"
           test -s "$RUNNER_TEMP/shiji-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/shiji-release.jks" -storepass "$SHIJI_KEYSTORE_PASSWORD" -alias "$SHIJI_KEY_ALIAS" >/dev/null
           echo "SHIJI_KEYSTORE_PATH=$RUNNER_TEMP/shiji-release.jks" >> "$GITHUB_ENV"
           echo "SHIJI_KEYSTORE_PASSWORD=$SHIJI_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "SHIJI_KEY_ALIAS=$SHIJI_KEY_ALIAS" >> "$GITHUB_ENV"
@@ -97,7 +98,7 @@ jobs:
           VERSION="${{ steps.version.outputs.name }}"
           mkdir -p dist
           APK="dist/ShijiPrivateNotes-$VERSION-Android-universal.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$APK"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
           (cd dist && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
           echo "APK_FILE=$APK" >> "$GITHUB_ENV"
           echo "SHA_FILE=$APK.sha256" >> "$GITHUB_ENV"
