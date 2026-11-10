@@ -260,16 +260,107 @@ fun ShijiApp() {
     }
 }
 @Composable private fun LockScreen(configured:Boolean, input:String, onInput:(String)->Unit, error:String, submit:()->Unit, biometric:()->Unit) {
-    Column(Modifier.fillMaxSize().padding(26.dp), verticalArrangement=Arrangement.Center) {
-        Text("时迹", style=MaterialTheme.typography.displayMedium, color=Cyan, fontWeight=FontWeight.Bold)
-        Text("让每一次记录，都有迹可循", color=Muted)
-        Spacer(Modifier.height(30.dp))
-        Text(if(configured) "输入主密码" else "设置主密码（至少 8 位）", style=MaterialTheme.typography.titleLarge)
-        OutlinedTextField(input,onInput,label={Text("主密码")},modifier=Modifier.fillMaxWidth(),singleLine=true)
-        if(error.isNotBlank()) Text(error,color=Color(0xFFFF7B86))
-        Spacer(Modifier.height(12.dp))
-        Button(onClick=submit,modifier=Modifier.fillMaxWidth()) { Text(if(configured) "解锁" else "创建保险库") }
-        TextButton(onClick=biometric,modifier=Modifier.fillMaxWidth()) { Icon(Icons.Default.Fingerprint,null); Text("指纹 / 生物识别") }
+    val context = LocalContext.current
+    val biometricReady = configured && Security.biometricConfigured(context)
+    Box(
+        modifier = Modifier.fillMaxSize().background(
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                listOf(Color(0xFF0B1424), Bg, Color(0xFF070B13))
+            )
+        ),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier.size(76.dp).background(Color(0xFF123247), RoundedCornerShape(24.dp)),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Cyan, modifier = Modifier.size(40.dp))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("时迹", style = MaterialTheme.typography.displaySmall, color = Color(0xFFEAF6FF), fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(5.dp))
+            Text("让每一次记录，都有迹可循", color = Muted, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(30.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF111E30)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x3342D9FF))
+            ) {
+                Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    if (biometricReady) {
+                        Text("欢迎回来", style = MaterialTheme.typography.titleLarge, color = Color(0xFFEAF3FF), fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        Text("使用指纹快速、安全地解锁私人空间", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(22.dp))
+                        Button(
+                            onClick = biometric,
+                            modifier = Modifier.fillMaxWidth().height(64.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF12617A))
+                        ) {
+                            Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(29.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("指纹优先解锁", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(18.dp))
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            HorizontalDivider(Modifier.weight(1f), color = Color(0xFF29394D))
+                            Text("  或使用主密码  ", color = Muted, style = MaterialTheme.typography.labelSmall)
+                            HorizontalDivider(Modifier.weight(1f), color = Color(0xFF29394D))
+                        }
+                        Spacer(Modifier.height(14.dp))
+                    } else {
+                        Text(if (configured) "主密码解锁" else "创建私人保险库", style = MaterialTheme.typography.titleLarge, color = Color(0xFFEAF3FF), fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            if (configured) "输入主密码进入你的本地空间" else "设置主密码后，即可启用指纹快捷解锁",
+                            color = Muted, style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(Modifier.height(18.dp))
+                    }
+
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = onInput,
+                        label = { Text(if (configured) "主密码" else "设置主密码（至少 8 位）") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Muted) }
+                    )
+                    if (error.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(error, color = Color(0xFFFF8792), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = submit,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Cyan)
+                    ) {
+                        Text(if (configured) "使用主密码解锁" else "创建保险库", color = Color(0xFF06121D), fontWeight = FontWeight.Bold)
+                    }
+                    if (!biometricReady && configured) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("指纹尚未绑定。进入后可在首页启用指纹解锁。", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFF5F7894), modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("数据仅保存在本机 · 私密内容受主密码保护", color = Color(0xFF71859E), style = MaterialTheme.typography.labelSmall)
+            }
+        }
     }
 }
 @Composable private fun NoteEditor(note:NoteEntity?,onClose:()->Unit,onSave:(String,String)->Unit) {
