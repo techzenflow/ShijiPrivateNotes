@@ -68,6 +68,6 @@ jobs:
           body: |
             Android Beta 测试版。
             安装前请备份重要数据；此版本仍需进行设备兼容性和指纹功能实测。
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
           files: app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk
