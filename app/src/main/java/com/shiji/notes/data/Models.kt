@@ -64,6 +64,21 @@ interface NotesDao {
     @Insert suspend fun insertVault(item: VaultItemEntity): Long
     @Update suspend fun updateVault(item: VaultItemEntity)
     @Delete suspend fun deleteVault(item: VaultItemEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertNotes(items: List<NoteEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertVersions(items: List<NoteVersionEntity>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertVaultItems(items: List<VaultItemEntity>)
+    @Query("DELETE FROM notes") suspend fun clearNotes()
+    @Query("DELETE FROM note_versions") suspend fun clearVersions()
+    @Query("DELETE FROM vault_items") suspend fun clearVault()
+    @Transaction
+    suspend fun replaceAllData(notes: List<NoteEntity>, versions: List<NoteVersionEntity>, vault: List<VaultItemEntity>) {
+        clearVersions()
+        clearNotes()
+        clearVault()
+        if (notes.isNotEmpty()) insertNotes(notes)
+        if (versions.isNotEmpty()) insertVersions(versions)
+        if (vault.isNotEmpty()) insertVaultItems(vault)
+    }
 }
 
 @Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 3, exportSchema = false)
