@@ -15,10 +15,10 @@ class BackupCodecTest {
     private val targetKey = ByteArray(32) { (it * 5 + 7).toByte() }
 
     @Test fun encryptedBackupRestoresAllRecordTypesUnderNewMasterKey() {
-        val note = NoteEntity(id=11, title="private title", body="secret body", createdAt=10, updatedAt=20,
+        val note = NoteEntity(id=11, title="private title", body="secret body", createdAt=10, updatedAt=20, category="work", tags="alpha,beta",
             deletedAt=30, isPinned=true, isFavorite=true).encryptFields(sourceKey)
         val version = NoteVersionEntity(id=21, noteId=11, versionNo=2, title="old title", body="old secret",
-            savedAt=15, reason="snapshot").encryptFields(sourceKey)
+            savedAt=15, reason="snapshot", category="archive", tags="old").encryptFields(sourceKey)
         val vault = VaultItemEntity(id=31,
             label=Security.encryptNoteField(sourceKey,"mail"), site=Security.encryptNoteField(sourceKey,"example.test"),
             usernameCipher=Security.encrypt(sourceKey,"private-user"), passwordCipher=Security.encrypt(sourceKey,"private-pass"),
