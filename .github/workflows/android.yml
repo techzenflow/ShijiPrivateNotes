@@ -63,17 +63,17 @@ jobs:
       - name: Publish versioned Beta Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1-beta.2
-          name: 时迹私人笔记 v1.0.1-beta.2
+          tag_name: v1.0.1-beta.3
+          name: 时迹私人笔记 v1.0.1-beta.3
           body: |
             ## 本次更新
-            - 优化锁屏页面，已绑定指纹时优先显示指纹解锁入口，主密码作为备用方式。
-            - 优化首页品牌信息卡片、导航栏和选中状态视觉。
-            - 版本号升级至 1.0.1-beta.2（versionCode 3）。
+            - 本次修改：取消 GitHub Pre-release 标记，Beta 版本也作为普通 Release 显示。
+            - Android 版本升级至 1.0.1-beta.3（versionCode 4）。
 
             ## 测试说明
-            - 本版本为 Android Beta 测试版，指纹功能仍需在真实设备上验证。
-            - 安装前请备份重要数据；请勿将尚未验证的版本用于唯一重要数据存储。
-          prerelease: true
-          make_latest: false
+            - 本版本仍属于 Beta 测试版本；普通 Release 展示不代表已通过正式版验收。
+            - 指纹功能和设备兼容性仍需真实设备验证。
+            - 安装前请备份重要数据。
+          prerelease: false
+          make_latest: true
           files: app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk
