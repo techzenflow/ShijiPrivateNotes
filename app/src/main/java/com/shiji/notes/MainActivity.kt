@@ -82,17 +82,37 @@ fun ShijiApp() {
                         masterInput = ""
                     } catch (e: Exception) { error = e.message ?: "设置失败" }
                 }, {
-                    val can = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-                    if (can == BiometricManager.BIOMETRIC_SUCCESS && configured) {
-                        val prompt = BiometricPrompt(context as FragmentActivity, ContextCompat.getMainExecutor(context),
-                            object : BiometricPrompt.AuthenticationCallback() {
-                                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                    error = "首次版本请使用主密码解锁；指纹快捷解锁需在后续安全密钥绑定版本启用。"
-                                }
-                            })
-                        prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("时迹身份验证")
-                            .setSubtitle("使用设备生物识别验证").setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL).build())
-                    } else error = "设备暂不支持可用的生物识别"
+                    try {
+                        if (!configured || !Security.biometricConfigured(context)) {
+                            error = "请先使用主密码解锁，再在首页启用指纹解锁"
+                        } else {
+                            val can = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                            if (can != BiometricManager.BIOMETRIC_SUCCESS) error = "请先在系统设置中录入指纹"
+                            else {
+                                val cipher = Security.biometricDecryptCipher(context)
+                                    ?: throw IllegalStateException("指纹密钥不可用，请使用主密码登录后重新启用")
+                                val prompt = BiometricPrompt(context as FragmentActivity, ContextCompat.getMainExecutor(context),
+                                    object : BiometricPrompt.AuthenticationCallback() {
+                                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                            try {
+                                                val c = result.cryptoObject?.cipher ?: throw IllegalStateException("认证结果无效")
+                                                masterKey = Security.finishBiometricUnlock(context, c)
+                                                unlocked = true
+                                                error = ""
+                                            } catch (e: Exception) {
+                                                error = "指纹密钥失效，请使用主密码登录后重新启用"
+                                                runCatching { Security.disableBiometric(context) }
+                                            }
+                                        }
+                                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { error = errString.toString() }
+                                    })
+                                prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("时迹身份验证")
+                                    .setSubtitle("使用已绑定指纹解锁").setNegativeButtonText("取消")
+                                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG).build(),
+                                    BiometricPrompt.CryptoObject(cipher))
+                            }
+                        }
+                    } catch (e: Exception) { error = e.message ?: "指纹解锁暂不可用" }
                 })
             } else {
                 Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -101,7 +121,40 @@ fun ShijiApp() {
                             Text("时迹", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Cyan)
                             Text("私人笔记 · 本地保险库", color = Muted, style = MaterialTheme.typography.labelMedium)
                         }
-                        TextButton(onClick = { unlocked = false; masterKey?.fill(0); masterKey = null }) { Text("锁定") }
+                        Row {
+                            TextButton(onClick = {
+                                val key = masterKey
+                                if (key == null) error = "主密钥不可用"
+                                else if (Security.biometricConfigured(context)) {
+                                    runCatching { Security.disableBiometric(context) }
+                                    error = "已关闭指纹解锁"
+                                } else {
+                                    try {
+                                        val can = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                                        if (can != BiometricManager.BIOMETRIC_SUCCESS) error = "请先在系统设置中录入指纹"
+                                        else {
+                                            val cipher = Security.createBiometricCipher()
+                                            val prompt = BiometricPrompt(context as FragmentActivity, ContextCompat.getMainExecutor(context),
+                                                object : BiometricPrompt.AuthenticationCallback() {
+                                                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                        try {
+                                                            val c = result.cryptoObject?.cipher ?: throw IllegalStateException("认证结果无效")
+                                                            Security.enableBiometric(context, key, c)
+                                                            error = "指纹解锁已启用"
+                                                        } catch (e: Exception) { error = e.message ?: "启用指纹失败" }
+                                                    }
+                                                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { error = errString.toString() }
+                                                })
+                                            prompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("启用指纹解锁")
+                                                .setSubtitle("验证指纹以绑定主密钥").setNegativeButtonText("取消")
+                                                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG).build(),
+                                                BiometricPrompt.CryptoObject(cipher))
+                                        }
+                                    } catch (e: Exception) { error = e.message ?: "无法启用指纹" }
+                                }
+                            }) { Text(if (Security.biometricConfigured(context)) "关闭指纹" else "启用指纹") }
+                            TextButton(onClick = { unlocked = false; masterKey?.fill(0); masterKey = null }) { Text("锁定") }
+                        }
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -110,6 +163,7 @@ fun ShijiApp() {
                         NavChip("密码库", page == "vault") { page = "vault" }
                     }
                     Spacer(Modifier.height(12.dp))
+                    if (error.isNotBlank()) Text(error, color=Cyan)
                     when (page) {
                         "notes" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
