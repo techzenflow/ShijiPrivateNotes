@@ -1,11 +1,11 @@
 name: Android APK
+
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   workflow_dispatch:
 
-# Serialize all builds so the signing keystore cache cannot be initialized
-# by competing runners with different keys.
 concurrency:
   group: shiji-android-release
   cancel-in-progress: false
@@ -20,10 +20,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify release version
+      - name: Read version metadata
+        id: version
+        shell: bash
         run: |
-          grep -F 'versionName = "1.0.1-beta.5"' app/build.gradle.kts
-          grep -F 'versionCode = 6' app/build.gradle.kts
+          set -euo pipefail
+          VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+          VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION_NAME" == *-beta.* ]]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            test "$TAG_VERSION" = "$VERSION_NAME" || { echo "Tag/version mismatch: $TAG_VERSION != $VERSION_NAME"; exit 1; }
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -48,14 +68,15 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      # Stable beta signing key. Builds are serialized above.
-      - name: Restore stable debug signing key
+      # Existing debug keystore cache is retained temporarily. A permanent
+      # release keystore in GitHub Actions secrets is required before production.
+      - name: Restore signing key
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: shiji-debug-signing-key-v1
 
-      - name: Build debug APK
+      - name: Build APK
         run: gradle --no-daemon assembleDebug
 
       - name: Verify APK signature and package metadata
@@ -65,13 +86,14 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.shiji.notes'"
 
       - name: Name APK and generate checksum
+        shell: bash
         run: |
           set -euo pipefail
-          SOURCE="app/build/outputs/apk/debug/app-debug.apk"
+          VERSION="${{ steps.version.outputs.name }}"
           DIST="dist"
           mkdir -p "$DIST"
-          APK="$DIST/ShijiPrivateNotes-1.0.1-beta.5-Android-universal.apk"
-          cp "$SOURCE" "$APK"
+          APK="$DIST/ShijiPrivateNotes-$VERSION-Android-universal.apk"
+          cp "app/build/outputs/apk/debug/app-debug.apk" "$APK"
           (cd "$DIST" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
           echo "APK_FILE=$APK" >> "$GITHUB_ENV"
           echo "SHA_FILE=$APK.sha256" >> "$GITHUB_ENV"
@@ -79,7 +101,7 @@ jobs:
       - name: Upload versioned APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ShijiPrivateNotes-1.0.1-beta.5-Android-universal
+          name: ShijiPrivateNotes-${{ steps.version.outputs.name }}-Android-universal
           path: |
             ${{ env.APK_FILE }}
             ${{ env.SHA_FILE }}
@@ -87,26 +109,24 @@ jobs:
           retention-days: 14
 
       - name: Publish versioned Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1-beta.5
-          name: 时迹私人笔记 v1.0.1-beta.5
+          tag_name: ${{ github.ref_name }}
+          name: 时迹私人笔记 v${{ steps.version.outputs.name }}
           body: |
             ## 本次更新
-            - 统一发布文件命名：项目名-版本-平台-架构。
-            - Android APK 文件名包含版本号、Android 平台和 universal 架构标识。
-            - 同步发布 SHA-256 校验文件。
-            - Android versionCode 升级至 6。
+            请查看仓库 CHANGELOG.md 与 docs/CHANGELOG_BETA.md / docs/CHANGELOG_STABLE.md。
 
             ## 文件说明
-            - `ShijiPrivateNotes-1.0.1-beta.5-Android-universal.apk`：Android 通用 APK。
-            - 同名 `.sha256`：用于校验 APK 下载完整性。
+            - APK：Android universal 通用安装包。
+            - SHA-256：下载完整性校验文件。
 
             ## 测试说明
-            - 本版本继续验证 APK 安装与升级兼容性；需真实设备测试。
-            - Beta 使用普通 GitHub Release，不勾选 Pre-release。
-          prerelease: false
-          make_latest: true
+            - 构建与 APK 签名验证通过不等于已完成真实设备安装、升级或功能验证。
+            - 请以本版本测试记录及已知问题为准。
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          make_latest: ${{ steps.version.outputs.latest }}
           files: |
             ${{ env.APK_FILE }}
             ${{ env.SHA_FILE }}
