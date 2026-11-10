@@ -61,6 +61,8 @@ fun ShijiApp() {
     var selectedVersion by remember { mutableStateOf<NoteVersionEntity?>(null) }
     val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
+    var noteQuery by remember { mutableStateOf("") }
+    val visibleNotes = remember(notes, noteQuery) { notes.filter { it.matchesQuery(noteQuery) } }
     val vault by dao.observeVault().collectAsState(initial = emptyList())
     MaterialTheme(colorScheme = darkColorScheme(
         background = Bg, surface = Panel, primary = Cyan, secondary = Color(0xFF8A7CFF),
@@ -180,8 +182,16 @@ fun ShijiApp() {
                                 Text("我的笔记", style = MaterialTheme.typography.titleLarge)
                                 Button(onClick = { selected = null; showEditor = true }) { Icon(Icons.Default.Add, null); Text("新建") }
                             }
+                            OutlinedTextField(
+                                value = noteQuery,
+                                onValueChange = { noteQuery = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                label = { Text("搜索标题或正文（解锁后本地搜索）") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+                            )
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(notes) { note ->
+                                items(visibleNotes) { note ->
                                     Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth().clickable { selected = note; showEditor = true }) {
                                         Column(Modifier.padding(16.dp)) {
                                             Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold)
