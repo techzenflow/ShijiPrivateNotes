@@ -473,7 +473,7 @@ fun ShijiApp() {
                 })
             }
             if (showBackupPasswordDialog) AlertDialog(
-                onDismissRequest = { showBackupPasswordDialog = false },
+                onDismissRequest = { showBackupPasswordDialog = false; exportPassword = "" },
                 title = { Text("设置备份密码") },
                 text = {
                     Column {
@@ -489,19 +489,19 @@ fun ShijiApp() {
                         createBackupLauncher.launch("ShijiPrivateNotes-backup.sjbackup")
                     }) { Text("继续") }
                 },
-                dismissButton = { TextButton(onClick={showBackupPasswordDialog=false}) { Text("取消") } }
+                dismissButton = { TextButton(onClick={showBackupPasswordDialog=false;exportPassword=""}) { Text("取消") } }
             )
             if (showRestorePasswordDialog) AlertDialog(
-                onDismissRequest = { showRestorePasswordDialog=false; pendingRestoreBytes=null },
+                onDismissRequest = { showRestorePasswordDialog=false; pendingRestoreBytes=null; restorePassword="" },
                 title = { Text("输入备份密码") },
                 text = { OutlinedTextField(value=restorePassword,onValueChange={restorePassword=it},label={Text("备份密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()) },
                 confirmButton = {
                     TextButton(enabled=restorePassword.isNotEmpty(),onClick={showRestorePasswordDialog=false;showRestoreConfirm=true}) { Text("下一步") }
                 },
-                dismissButton = { TextButton(onClick={showRestorePasswordDialog=false;pendingRestoreBytes=null}) { Text("取消") } }
+                dismissButton = { TextButton(onClick={showRestorePasswordDialog=false;pendingRestoreBytes=null;restorePassword=""}) { Text("取消") } }
             )
             if (showRestoreConfirm) AlertDialog(
-                onDismissRequest = { showRestoreConfirm=false },
+                onDismissRequest = { showRestoreConfirm=false; pendingRestoreBytes=null; restorePassword="" },
                 title = { Text("确认替换当前数据？") },
                 text = { Text("恢复成功后，当前笔记、历史版本、回收站和密码库将被备份内容替换。导入前会先验证备份密码、文件完整性和记录关联。") },
                 confirmButton = {
@@ -524,7 +524,7 @@ fun ShijiApp() {
                         }
                     }) { Text("确认恢复", color=Color(0xFFFF8792)) }
                 },
-                dismissButton = { TextButton(onClick={showRestoreConfirm=false}) { Text("取消") } }
+                dismissButton = { TextButton(onClick={showRestoreConfirm=false;pendingRestoreBytes=null;restorePassword=""}) { Text("取消") } }
             )
             if (showPasswordGenerator) PasswordGeneratorDialog(
                 onClose = { showPasswordGenerator = false },
