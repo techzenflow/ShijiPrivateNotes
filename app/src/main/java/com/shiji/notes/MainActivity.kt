@@ -8,6 +8,8 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -493,7 +495,7 @@ fun ShijiApp() {
                     FilterChip(selected = !preview, onClick = { preview = false }, label = { Text("编辑") })
                     FilterChip(selected = preview, onClick = { preview = true }, label = { Text("预览") })
                     Spacer(Modifier.weight(1f))
-                    Text("\${words} 词 · \${chars} 字", color = Muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                    Text("$words 词 · $chars 字", color = Muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
                 }
                 Spacer(Modifier.height(8.dp))
                 if (preview) {
@@ -529,7 +531,7 @@ fun ShijiApp() {
         if (markdown.isBlank()) {
             Text("暂无内容", color = Muted)
         } else {
-            var inCode by remember(markdown) { mutableStateOf(false) }
+            var inCode = false
             markdown.lines().forEach { raw ->
                 val line = raw.trimEnd()
                 when {
