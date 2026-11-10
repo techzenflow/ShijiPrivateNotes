@@ -661,12 +661,23 @@ fun ShijiApp() {
     var category by remember(note?.id) { mutableStateOf(note?.category ?: "") }
     var tags by remember(note?.id) { mutableStateOf(note?.tags ?: "") }
     var body by remember(note?.id) { mutableStateOf(TextFieldValue(note?.body ?: "")) }
+    val undoStack = remember(note?.id) { mutableStateListOf<TextFieldValue>() }
+    val redoStack = remember(note?.id) { mutableStateListOf<TextFieldValue>() }
     var preview by remember { mutableStateOf(false) }
     val words = remember(body.text) { body.text.trim().split(Regex("\\s+")).count { it.isNotBlank() } }
     val chars = body.text.length
 
+    fun updateBody(next: TextFieldValue) {
+        if (next.text != body.text) {
+            undoStack.add(body)
+            if (undoStack.size > 50) undoStack.removeAt(0)
+            redoStack.clear()
+        }
+        body = next
+    }
+
     fun insertMarkdown(prefix: String, suffix: String = "", linePrefix: Boolean = false) {
-        body = MarkdownEditing.apply(body, prefix, suffix, linePrefix)
+        updateBody(MarkdownEditing.apply(body, prefix, suffix, linePrefix))
     }
 
     androidx.compose.ui.window.Dialog(
@@ -704,6 +715,18 @@ fun ShijiApp() {
                         .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
+                    EditorTool("撤销") {
+                        if (undoStack.isNotEmpty()) {
+                            redoStack.add(body)
+                            body = undoStack.removeAt(undoStack.lastIndex)
+                        }
+                    }
+                    EditorTool("重做") {
+                        if (redoStack.isNotEmpty()) {
+                            undoStack.add(body)
+                            body = redoStack.removeAt(redoStack.lastIndex)
+                        }
+                    }
                     EditorTool("H1") { insertMarkdown("# ", linePrefix = true) }
                     EditorTool("H2") { insertMarkdown("## ", linePrefix = true) }
                     EditorTool("粗体") { insertMarkdown("**", "**") }
@@ -714,6 +737,8 @@ fun ShijiApp() {
                     EditorTool("引用") { insertMarkdown("> ", linePrefix = true) }
                     EditorTool("代码") { insertMarkdown("\u0060", "\u0060") }
                     EditorTool("代码块") { insertMarkdown("\u0060\u0060\u0060\n", "\n\u0060\u0060\u0060") }
+                    EditorTool("链接") { insertMarkdown("[", "](https://)") }
+                    EditorTool("图片") { insertMarkdown("![", "](image-url)") }
                     EditorTool("分割线") { insertMarkdown("---") }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -731,7 +756,7 @@ fun ShijiApp() {
                 } else {
                     OutlinedTextField(
                         value = body,
-                        onValueChange = { body = it },
+                        onValueChange = { updateBody(it) },
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         placeholder = { Text("从这里开始记录……\n\n支持 Markdown：标题、列表、任务清单、引用和代码块。") },
                         shape = RoundedCornerShape(16.dp),
