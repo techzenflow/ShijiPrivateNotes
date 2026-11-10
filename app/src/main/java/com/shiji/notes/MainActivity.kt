@@ -84,7 +84,7 @@ fun ShijiApp() {
                 }, {
                     val can = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
                     if (can == BiometricManager.BIOMETRIC_SUCCESS && configured) {
-                        val prompt = BiometricPrompt(context as ComponentActivity, ContextCompat.getMainExecutor(context),
+                        val prompt = BiometricPrompt(context as FragmentActivity, ContextCompat.getMainExecutor(context),
                             object : BiometricPrompt.AuthenticationCallback() {
                                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                                     error = "首次版本请使用主密码解锁；指纹快捷解锁需在后续安全密钥绑定版本启用。"
