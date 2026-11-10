@@ -84,7 +84,7 @@ object BackupCodec {
             throw IllegalArgumentException("备份文件大小无效")
         }
         if (!bytes.copyOfRange(0, magic.size).contentEquals(magic)) {
-            backupPassword.fill('\\u0000')
+            backupPassword.fill('\u0000')
             throw IllegalArgumentException("不是有效的时迹加密备份文件")
         }
         val saltStart = magic.size
