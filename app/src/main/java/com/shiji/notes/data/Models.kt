@@ -1,0 +1,71 @@
+package com.shiji.notes.data
+
+import androidx.room.*
+
+@Entity(tableName = "notes")
+data class NoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val body: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Entity(tableName = "note_versions", indices = [Index("noteId"), Index("savedAt")])
+data class NoteVersionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val noteId: Long,
+    val versionNo: Int,
+    val title: String,
+    val body: String,
+    val savedAt: Long,
+    val reason: String
+)
+
+@Entity(tableName = "vault_items")
+data class VaultItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val label: String,
+    val site: String,
+    val usernameCipher: String,
+    val passwordCipher: String,
+    val notesCipher: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Dao
+interface NotesDao {
+    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    fun observeNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
+    @Query("SELECT * FROM notes WHERE id=:id") suspend fun getNote(id: Long): NoteEntity?
+    @Insert suspend fun insertNote(note: NoteEntity): Long
+    @Update suspend fun updateNote(note: NoteEntity)
+    @Delete suspend fun deleteNote(note: NoteEntity)
+    @Query("SELECT * FROM note_versions WHERE noteId=:id ORDER BY versionNo DESC")
+    fun observeVersions(id: Long): kotlinx.coroutines.flow.Flow<List<NoteVersionEntity>>
+    @Query("SELECT * FROM note_versions WHERE noteId=:id ORDER BY versionNo DESC")
+    suspend fun getVersions(id: Long): List<NoteVersionEntity>
+    @Query("SELECT * FROM note_versions WHERE id=:id") suspend fun getVersion(id: Long): NoteVersionEntity?
+    @Insert suspend fun insertVersion(version: NoteVersionEntity): Long
+    @Query("SELECT COALESCE(MAX(versionNo),0) FROM note_versions WHERE noteId=:id")
+    suspend fun maxVersion(id: Long): Int
+    @Query("SELECT * FROM vault_items ORDER BY updatedAt DESC")
+    fun observeVault(): kotlinx.coroutines.flow.Flow<List<VaultItemEntity>>
+    @Insert suspend fun insertVault(item: VaultItemEntity): Long
+    @Update suspend fun updateVault(item: VaultItemEntity)
+    @Delete suspend fun deleteVault(item: VaultItemEntity)
+}
+
+@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 1, exportSchema = false)
+abstract class ShijiDatabase : RoomDatabase() {
+    abstract fun dao(): NotesDao
+    companion object {
+        @Volatile private var INSTANCE: ShijiDatabase? = null
+        fun get(context: android.content.Context): ShijiDatabase =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: Room.databaseBuilder(context.applicationContext, ShijiDatabase::class.java, "shiji_local.db")
+                    .build().also { INSTANCE = it }
+            }
+    }
+}
