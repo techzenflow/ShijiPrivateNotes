@@ -80,7 +80,7 @@ object BackupCodec {
 
     fun restore(bytes: ByteArray, backupPassword: CharArray, masterKey: ByteArray): BackupData {
         if (bytes.size !in (magic.size + SALT_SIZE + IV_SIZE + 16)..MAX_BACKUP_BYTES) {
-            backupPassword.fill('\\u0000')
+            backupPassword.fill('\u0000')
             throw IllegalArgumentException("备份文件大小无效")
         }
         if (!bytes.copyOfRange(0, magic.size).contentEquals(magic)) {
