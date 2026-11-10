@@ -211,7 +211,7 @@ fun ShijiApp() {
                                 dao.insertVersion(NoteVersionEntity(noteId=note.id, versionNo=next, title=v.title, body=v.body, savedAt=now, reason="从 V${v.versionNo} 恢复").encryptFields(key))
                                 dao.updateNote(current.decryptFields(key).copy(title=v.title, body=v.body, updatedAt=now).encryptFields(key))
                             }
-                        }) } } }
+                        }) } }
                         "vault" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("私密账号", style = MaterialTheme.typography.titleLarge)
