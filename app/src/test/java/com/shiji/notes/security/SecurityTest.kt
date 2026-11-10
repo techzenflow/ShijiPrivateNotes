@@ -69,7 +69,6 @@ class SecurityTest {
         assertNotNull(Security.unlock(context, "correct horse".toCharArray()))
         assertNull(Security.unlock(context, "wrong password".toCharArray()))
     }
-}
 
     @Test fun decryptedNotesCanBeSearchedInMemory() {
         val note = NoteEntity(title="Private Project", body="Contains a unique phrase", createdAt=1, updatedAt=2)
@@ -81,3 +80,4 @@ class SecurityTest {
         assertFalse(decrypted.matchesQuery("missing"))
         assertTrue(decrypted.matchesQuery("   "))
     }
+}
