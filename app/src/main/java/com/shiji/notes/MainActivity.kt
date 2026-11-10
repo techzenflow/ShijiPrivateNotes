@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import com.shiji.notes.data.*
 import com.shiji.notes.security.Security
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.launch\nimport kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -63,7 +63,15 @@ fun ShijiApp() {
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
     var noteQuery by remember { mutableStateOf("") }
     val visibleNotes = remember(notes, noteQuery) { notes.filter { it.matchesQuery(noteQuery) } }
-    val vault by dao.observeVault().collectAsState(initial = emptyList())
+    val rawVault by dao.observeVault().collectAsState(initial = emptyList())
+    val vault = remember(rawVault, masterKey) {
+        masterKey?.let { key -> rawVault.map { item ->
+            item.copy(
+                label = Security.decryptNoteField(key, item.label),
+                site = Security.decryptNoteField(key, item.site)
+            )
+        } } ?: emptyList()
+    }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Bg, surface = Panel, primary = Cyan, secondary = Color(0xFF8A7CFF),
         onBackground = Color(0xFFEAF3FF), onSurface = Color(0xFFEAF3FF)
@@ -296,7 +304,7 @@ fun ShijiApp() {
                 val key = masterKey
                 if (key != null) scope.launch {
                     val now=System.currentTimeMillis()
-                    dao.insertVault(VaultItemEntity(label=label,site=site,usernameCipher=Security.encrypt(key,user),passwordCipher=Security.encrypt(key,pass),notesCipher=Security.encrypt(key,notesText),createdAt=now,updatedAt=now))
+                    dao.insertVault(VaultItemEntity(label=Security.encryptNoteField(key,label),site=Security.encryptNoteField(key,site),usernameCipher=Security.encrypt(key,user),passwordCipher=Security.encrypt(key,pass),notesCipher=Security.encrypt(key,notesText),createdAt=now,updatedAt=now))
                     showVaultEditor=false
                 }
             })
@@ -495,6 +503,14 @@ private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
             dao.updateNote(note.copy(
                 title = Security.encryptNoteField(key, note.title),
                 body = Security.encryptNoteField(key, note.body)
+            ))
+        }
+    }
+    dao.observeVault().first().forEach { item ->
+        if (!item.label.startsWith("SHIJI1:") || !item.site.startsWith("SHIJI1:")) {
+            dao.updateVault(item.copy(
+                label = Security.encryptNoteField(key, item.label),
+                site = Security.encryptNoteField(key, item.site)
             ))
         }
     }
