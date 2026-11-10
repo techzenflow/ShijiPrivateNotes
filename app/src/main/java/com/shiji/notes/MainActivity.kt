@@ -433,13 +433,124 @@ fun ShijiApp() {
         }
     }
 }
-@Composable private fun NoteEditor(note:NoteEntity?,onClose:()->Unit,onSave:(String,String)->Unit) {
-    var title by remember { mutableStateOf(note?.title ?: "") }
-    var body by remember { mutableStateOf(note?.body ?: "") }
-    AlertDialog(onDismissRequest=onClose, title={Text(if(note==null)"新建笔记" else "编辑笔记")},
-        text={Column { OutlinedTextField(title,{title=it},label={Text("标题")}); Spacer(Modifier.height(8.dp)); OutlinedTextField(body,{body=it},label={Text("正文")},minLines=6) }},
-        confirmButton={TextButton(onClick={onSave(title,body)}){Text("保存")}}, dismissButton={TextButton(onClick=onClose){Text("取消")}})
+@Composable private fun NoteEditor(note: NoteEntity?, onClose: () -> Unit, onSave: (String, String) -> Unit) {
+    var title by remember(note?.id) { mutableStateOf(note?.title ?: "") }
+    var body by remember(note?.id) { mutableStateOf(note?.body ?: "") }
+    var preview by remember { mutableStateOf(false) }
+    val words = remember(body) { body.trim().split(Regex("\\s+")).count { it.isNotBlank() } }
+    val chars = body.length
+
+    fun insertMarkdown(prefix: String, suffix: String = "") {
+        val token = if (body.isBlank()) "文本" else ""
+        val insertion = prefix + token + suffix
+        body = if (body.isBlank()) insertion else body.trimEnd() + "\n" + insertion
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(Modifier.fillMaxSize(), color = Bg, shape = RoundedCornerShape(0.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(if (note == null) "新建笔记" else "编辑笔记", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("本地加密保存 · Markdown 编辑器", color = Muted, style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick = onClose) { Text("取消") }
+                    Button(onClick = { onSave(title.trim(), body) }, enabled = title.isNotBlank() || body.isNotBlank()) { Text("保存") }
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("给这篇笔记起个标题") },
+                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(5.dp)
+                        .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    EditorTool("H1") { insertMarkdown("# ") }
+                    EditorTool("H2") { insertMarkdown("## ") }
+                    EditorTool("粗体") { insertMarkdown("**", "**") }
+                    EditorTool("斜体") { insertMarkdown("*", "*") }
+                    EditorTool("删除线") { insertMarkdown("~~", "~~") }
+                    EditorTool("列表") { insertMarkdown("- ") }
+                    EditorTool("任务") { insertMarkdown("- [ ] ") }
+                    EditorTool("引用") { insertMarkdown("> ") }
+                    EditorTool("代码") { insertMarkdown("\u0060", "\u0060") }
+                    EditorTool("代码块") { insertMarkdown("\u0060\u0060\u0060\n", "\n\u0060\u0060\u0060") }
+                    EditorTool("分割线") { insertMarkdown("---") }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !preview, onClick = { preview = false }, label = { Text("编辑") })
+                    FilterChip(selected = preview, onClick = { preview = true }, label = { Text("预览") })
+                    Spacer(Modifier.weight(1f))
+                    Text("\${words} 词 · \${chars} 字", color = Muted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
+                }
+                Spacer(Modifier.height(8.dp))
+                if (preview) {
+                    Surface(Modifier.fillMaxWidth().weight(1f), color = Panel, shape = RoundedCornerShape(16.dp)) {
+                        MarkdownPreview(body, Modifier.fillMaxSize().padding(16.dp))
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = body,
+                        onValueChange = { body = it },
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        placeholder = { Text("从这里开始记录……\n\n支持 Markdown：标题、列表、任务清单、引用和代码块。") },
+                        shape = RoundedCornerShape(16.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        minLines = 12
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("提示：工具栏会在正文末尾插入 Markdown 标记；切换「预览」可查看排版效果。", color = Muted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
 }
+
+@Composable private fun EditorTool(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Cyan)
+    }
+}
+
+@Composable private fun MarkdownPreview(markdown: String, modifier: Modifier = Modifier) {
+    Column(modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (markdown.isBlank()) {
+            Text("暂无内容", color = Muted)
+        } else {
+            var inCode by remember(markdown) { mutableStateOf(false) }
+            markdown.lines().forEach { raw ->
+                val line = raw.trimEnd()
+                when {
+                    line.trim().startsWith("\u0060\u0060\u0060") -> { inCode = !inCode }
+                    inCode -> Text(line, color = Color(0xFF9FE8C3), modifier = Modifier.fillMaxWidth().background(Color(0xFF09121D), RoundedCornerShape(6.dp)).padding(8.dp), style = MaterialTheme.typography.bodySmall)
+                    line.startsWith("### ") -> Text(line.removePrefix("### "), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    line.startsWith("## ") -> Text(line.removePrefix("## "), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    line.startsWith("# ") -> Text(line.removePrefix("# "), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    line.startsWith("> ") -> Text(line.removePrefix("> "), color = Cyan, modifier = Modifier.fillMaxWidth().background(Color(0x221C9AB8), RoundedCornerShape(6.dp)).padding(10.dp))
+                    line.startsWith("- [ ] ") -> Text("□  " + line.removePrefix("- [ ] "), color = Color(0xFFEAF3FF))
+                    line.startsWith("- [x] ", ignoreCase = true) -> Text("☑  " + line.substringAfter("] "), color = Muted)
+                    line.startsWith("- ") || line.startsWith("* ") -> Text("•  " + line.drop(2), color = Color(0xFFEAF3FF))
+                    line == "---" || line == "***" -> HorizontalDivider(color = Color(0xFF34465C))
+                    line.isBlank() -> Spacer(Modifier.height(3.dp))
+                    else -> Text(line, color = Color(0xFFEAF3FF), style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun HistoryScreen(dao:NotesDao,note:NoteEntity,key:ByteArray,onCompare:(NoteVersionEntity)->Unit,onRestore:(NoteVersionEntity)->Unit) {
     val rawVersions by dao.observeVersions(note.id).collectAsState(initial=emptyList())
     val versions = remember(rawVersions, key) { rawVersions.map { it.decryptFields(key) } }
