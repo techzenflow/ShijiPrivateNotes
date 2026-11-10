@@ -676,7 +676,7 @@ fun ShijiApp() {
                         Text("本地加密保存 · Markdown 编辑器", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(onClick = onClose) { Text("取消") }
-                    Button(onClick = { onSave(title.trim(), body.text) }, enabled = title.isNotBlank() || body.isNotBlank()) { Text("保存") }
+                    Button(onClick = { onSave(title.trim(), body.text) }, enabled = title.isNotBlank() || body.text.isNotBlank()) { Text("保存") }
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
