@@ -2,6 +2,12 @@
 
 本文件记录每一次已提交的项目修改。最新版本置顶。
 
+## 1.0.1-beta.4 — 2026-11-10
+- 修复 GitHub Actions 并发构建可能导致 Debug 签名密钥缓存竞争的风险：Android 发布构建统一串行执行。
+- 增加 APK 签名校验，校验失败时不上传 Release APK。
+- Android versionCode 从 4 升至 5。
+- 目的：排查并修复不同 Beta APK 签名不一致导致的覆盖安装失败；仍需在目标手机验证升级安装。
+
 ## 1.0.1-beta.3 — 2026-11-10
 - 根据项目发布策略，取消 Beta Release 的 GitHub Pre-release 标记，Beta 包也作为普通 Release 显示。
 - GitHub Release 标记为 Latest，便于从仓库主页 Releases 入口直接看到最新 Beta 包。
