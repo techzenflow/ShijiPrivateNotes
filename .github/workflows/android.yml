@@ -37,6 +37,14 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
+      # Keep the same debug signing key between GitHub-hosted runners.
+      # This is a beta/debug key only, not a production release key.
+      - name: Restore stable debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: shiji-debug-signing-key-v1
+
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
@@ -52,11 +60,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish direct APK download
+      - name: Publish versioned Beta Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-debug-latest
-          name: 时迹私人笔记 - 安卓测试版
+          tag_name: v1.0.1-beta.1
+          name: 时迹私人笔记 v1.0.1-beta.1
+          body: |
+            Android Beta 测试版。
+            安装前请备份重要数据；此版本仍需进行设备兼容性和指纹功能实测。
           prerelease: true
           make_latest: false
           files: app/build/outputs/apk/debug/ShijiPrivateNotes-Android-Test.apk
