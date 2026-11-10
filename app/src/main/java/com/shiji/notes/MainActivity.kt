@@ -59,7 +59,8 @@ fun ShijiApp() {
     var showEditor by remember { mutableStateOf(false) }
     var showVaultEditor by remember { mutableStateOf(false) }
     var selectedVersion by remember { mutableStateOf<NoteVersionEntity?>(null) }
-    val notes by dao.observeNotes().collectAsState(initial = emptyList())
+    val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
+    val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
     val vault by dao.observeVault().collectAsState(initial = emptyList())
     MaterialTheme(colorScheme = darkColorScheme(
         background = Bg, surface = Panel, primary = Cyan, secondary = Color(0xFF8A7CFF),
@@ -74,10 +75,11 @@ fun ShijiApp() {
                             configured = true
                             masterKey = Security.unlock(context, masterInput.toCharArray())
                             unlocked = masterKey != null
+                            if (masterKey != null) migrateLegacyNotes(dao, masterKey!!)
                         } else {
                             masterKey = Security.unlock(context, masterInput.toCharArray())
                             unlocked = masterKey != null
-                            if (!unlocked) error = "主密码不正确"
+                            if (!unlocked) error = "主密码不正确" else masterKey?.let { migrateLegacyNotes(dao, it) }
                         }
                         masterInput = ""
                     } catch (e: Exception) { error = e.message ?: "设置失败" }
@@ -98,6 +100,7 @@ fun ShijiApp() {
                                                 val c = result.cryptoObject?.cipher ?: throw IllegalStateException("认证结果无效")
                                                 masterKey = Security.finishBiometricUnlock(context, c)
                                                 unlocked = true
+                                                migrateLegacyNotes(dao, masterKey!!)
                                                 error = ""
                                             } catch (e: Exception) {
                                                 error = "指纹密钥失效，请使用主密码登录后重新启用"
@@ -199,14 +202,16 @@ fun ShijiApp() {
                                 }
                             }
                         }
-                        "history" -> selected?.let { HistoryScreen(dao, it, onCompare = { selectedVersion = it }, onRestore = { v ->
+                        "history" -> selected?.let { note -> masterKey?.let { key -> HistoryScreen(dao, note, key, onCompare = { selectedVersion = it }, onRestore = { v ->
                             scope.launch {
-                                val current = dao.getNote(it.id) ?: return@launch
-                                val next = dao.maxVersion(it.id) + 1
-                                dao.insertVersion(NoteVersionEntity(noteId=it.id, versionNo=next, title=v.title, body=v.body, savedAt=System.currentTimeMillis(), reason="从 V${v.versionNo} 恢复"))
-                                dao.updateNote(current.copy(title=v.title, body=v.body, updatedAt=System.currentTimeMillis()))
+                                val key = masterKey ?: return@launch
+                                val current = dao.getNote(note.id) ?: return@launch
+                                val now = System.currentTimeMillis()
+                                val next = dao.maxVersion(note.id) + 1
+                                dao.insertVersion(NoteVersionEntity(noteId=note.id, versionNo=next, title=v.title, body=v.body, savedAt=now, reason="从 V${v.versionNo} 恢复").encryptFields(key))
+                                dao.updateNote(current.decryptFields(key).copy(title=v.title, body=v.body, updatedAt=now).encryptFields(key))
                             }
-                        }) }
+                        }) } } }
                         "vault" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("私密账号", style = MaterialTheme.typography.titleLarge)
@@ -233,16 +238,18 @@ fun ShijiApp() {
                 scope.launch {
                     val now = System.currentTimeMillis()
                     if (selected == null) {
-                        val id = dao.insertNote(NoteEntity(title=title, body=body, createdAt=now, updatedAt=now))
-                        dao.insertVersion(NoteVersionEntity(noteId=id, versionNo=1, title=title, body=body, savedAt=now, reason="创建笔记"))
+                        val key = masterKey ?: return@launch
+                        val id = dao.insertNote(NoteEntity(title=title, body=body, createdAt=now, updatedAt=now).encryptFields(key))
+                        dao.insertVersion(NoteVersionEntity(noteId=id, versionNo=1, title=title, body=body, savedAt=now, reason="创建笔记").encryptFields(key))
                     } else {
-                        val old = dao.getNote(selected!!.id)!!
+                        val key = masterKey ?: return@launch
+                        val old = dao.getNote(selected!!.id)!!.decryptFields(key)
                         if (old.title != title || old.body != body) {
                             val v = dao.maxVersion(old.id) + 1
-                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=v, title=old.title, body=old.body, savedAt=now, reason="编辑前自动快照"))
-                            dao.updateNote(old.copy(title=title, body=body, updatedAt=now))
+                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=v, title=old.title, body=old.body, savedAt=now, reason="编辑前自动快照").encryptFields(key))
+                            dao.updateNote(old.copy(title=title, body=body, updatedAt=now).encryptFields(key))
                             val nv = dao.maxVersion(old.id) + 1
-                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=nv, title=title, body=body, savedAt=now, reason="保存修改"))
+                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=nv, title=title, body=body, savedAt=now, reason="保存修改").encryptFields(key))
                         }
                     }
                     showEditor = false
@@ -256,7 +263,7 @@ fun ShijiApp() {
                     showVaultEditor=false
                 }
             })
-            selectedVersion?.let { VersionCompare(it, dao, onClose={selectedVersion=null}) }
+            selectedVersion?.let { v -> masterKey?.let { key -> VersionCompare(v, dao, key, onClose={selectedVersion=null}) } }
         }
     }
 }
@@ -387,8 +394,9 @@ fun ShijiApp() {
         text={Column { OutlinedTextField(title,{title=it},label={Text("标题")}); Spacer(Modifier.height(8.dp)); OutlinedTextField(body,{body=it},label={Text("正文")},minLines=6) }},
         confirmButton={TextButton(onClick={onSave(title,body)}){Text("保存")}}, dismissButton={TextButton(onClick=onClose){Text("取消")}})
 }
-@Composable private fun HistoryScreen(dao:NotesDao,note:NoteEntity,onCompare:(NoteVersionEntity)->Unit,onRestore:(NoteVersionEntity)->Unit) {
-    val versions by dao.observeVersions(note.id).collectAsState(initial=emptyList())
+@Composable private fun HistoryScreen(dao:NotesDao,note:NoteEntity,key:ByteArray,onCompare:(NoteVersionEntity)->Unit,onRestore:(NoteVersionEntity)->Unit) {
+    val rawVersions by dao.observeVersions(note.id).collectAsState(initial=emptyList())
+    val versions = remember(rawVersions, key) { rawVersions.map { it.decryptFields(key) } }
     Column(Modifier.fillMaxSize().padding(top=12.dp)) {
         Text("「${note.title}」版本时间线",style=MaterialTheme.typography.titleLarge)
         LazyColumn {
@@ -406,9 +414,9 @@ fun ShijiApp() {
         }
     }
 }
-@Composable private fun VersionCompare(version:NoteVersionEntity, dao:NotesDao, onClose:()->Unit) {
+@Composable private fun VersionCompare(version:NoteVersionEntity, dao:NotesDao, key:ByteArray, onClose:()->Unit) {
     var current by remember(version.id) { mutableStateOf<NoteEntity?>(null) }
-    LaunchedEffect(version.id) { current = dao.getNote(version.noteId) }
+    LaunchedEffect(version.id) { current = dao.getNote(version.noteId)?.decryptFields(key) }
     val oldLines = version.body.lines()
     val newLines = (current?.body ?: "").lines()
     val oldSet = oldLines.toSet()
@@ -442,5 +450,24 @@ fun ShijiApp() {
         OutlinedTextField(value=pass,onValueChange={pass=it},label={Text("密码")})
         OutlinedTextField(value=note,onValueChange={note=it},label={Text("备注")})
     }},confirmButton={TextButton(onClick={onSave(label,site,user,pass,note)}){Text("加密保存")}},dismissButton={TextButton(onClick=onClose){Text("取消")}})
+}
+private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
+    val notes = dao.getAllNotes()
+    notes.forEach { note ->
+        if (!note.title.startsWith("SHIJI1:") || !note.body.startsWith("SHIJI1:")) {
+            dao.updateNote(note.copy(
+                title = Security.encryptNoteField(key, note.title),
+                body = Security.encryptNoteField(key, note.body)
+            ))
+        }
+    }
+    dao.getAllVersions().forEach { version ->
+        if (!version.title.startsWith("SHIJI1:") || !version.body.startsWith("SHIJI1:")) {
+            dao.updateVersion(version.copy(
+                title = Security.encryptNoteField(key, version.title),
+                body = Security.encryptNoteField(key, version.body)
+            ))
+        }
+    }
 }
 private fun date(ms:Long)=SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(ms))

@@ -39,6 +39,7 @@ interface NotesDao {
     @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
     fun observeNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
     @Query("SELECT * FROM notes WHERE id=:id") suspend fun getNote(id: Long): NoteEntity?
+    @Query("SELECT * FROM notes") suspend fun getAllNotes(): List<NoteEntity>
     @Insert suspend fun insertNote(note: NoteEntity): Long
     @Update suspend fun updateNote(note: NoteEntity)
     @Delete suspend fun deleteNote(note: NoteEntity)
@@ -48,6 +49,8 @@ interface NotesDao {
     suspend fun getVersions(id: Long): List<NoteVersionEntity>
     @Query("SELECT * FROM note_versions WHERE id=:id") suspend fun getVersion(id: Long): NoteVersionEntity?
     @Insert suspend fun insertVersion(version: NoteVersionEntity): Long
+    @Update suspend fun updateVersion(version: NoteVersionEntity)
+    @Query("SELECT * FROM note_versions") suspend fun getAllVersions(): List<NoteVersionEntity>
     @Query("SELECT COALESCE(MAX(versionNo),0) FROM note_versions WHERE noteId=:id")
     suspend fun maxVersion(id: Long): Int
     @Query("SELECT * FROM vault_items ORDER BY updatedAt DESC")
