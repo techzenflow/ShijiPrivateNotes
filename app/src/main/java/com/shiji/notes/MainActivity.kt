@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.room.Room
 import com.shiji.notes.data.*
@@ -451,15 +453,13 @@ fun ShijiApp() {
 }
 @Composable private fun NoteEditor(note: NoteEntity?, onClose: () -> Unit, onSave: (String, String) -> Unit) {
     var title by remember(note?.id) { mutableStateOf(note?.title ?: "") }
-    var body by remember(note?.id) { mutableStateOf(note?.body ?: "") }
+    var body by remember(note?.id) { mutableStateOf(TextFieldValue(note?.body ?: "")) }
     var preview by remember { mutableStateOf(false) }
-    val words = remember(body) { body.trim().split(Regex("\\s+")).count { it.isNotBlank() } }
-    val chars = body.length
+    val words = remember(body.text) { body.text.trim().split(Regex("\\s+")).count { it.isNotBlank() } }
+    val chars = body.text.length
 
-    fun insertMarkdown(prefix: String, suffix: String = "") {
-        val token = if (body.isBlank()) "文本" else ""
-        val insertion = prefix + token + suffix
-        body = if (body.isBlank()) insertion else body.trimEnd() + "\n" + insertion
+    fun insertMarkdown(prefix: String, suffix: String = "", linePrefix: Boolean = false) {
+        body = MarkdownEditing.apply(body, prefix, suffix, linePrefix)
     }
 
     androidx.compose.ui.window.Dialog(
@@ -474,7 +474,7 @@ fun ShijiApp() {
                         Text("本地加密保存 · Markdown 编辑器", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(onClick = onClose) { Text("取消") }
-                    Button(onClick = { onSave(title.trim(), body) }, enabled = title.isNotBlank() || body.isNotBlank()) { Text("保存") }
+                    Button(onClick = { onSave(title.trim(), body.text) }, enabled = title.isNotBlank() || body.isNotBlank()) { Text("保存") }
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
@@ -492,14 +492,14 @@ fun ShijiApp() {
                         .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    EditorTool("H1") { insertMarkdown("# ") }
-                    EditorTool("H2") { insertMarkdown("## ") }
+                    EditorTool("H1") { insertMarkdown("# ", linePrefix = true) }
+                    EditorTool("H2") { insertMarkdown("## ", linePrefix = true) }
                     EditorTool("粗体") { insertMarkdown("**", "**") }
                     EditorTool("斜体") { insertMarkdown("*", "*") }
                     EditorTool("删除线") { insertMarkdown("~~", "~~") }
-                    EditorTool("列表") { insertMarkdown("- ") }
-                    EditorTool("任务") { insertMarkdown("- [ ] ") }
-                    EditorTool("引用") { insertMarkdown("> ") }
+                    EditorTool("列表") { insertMarkdown("- ", linePrefix = true) }
+                    EditorTool("任务") { insertMarkdown("- [ ] ", linePrefix = true) }
+                    EditorTool("引用") { insertMarkdown("> ", linePrefix = true) }
                     EditorTool("代码") { insertMarkdown("\u0060", "\u0060") }
                     EditorTool("代码块") { insertMarkdown("\u0060\u0060\u0060\n", "\n\u0060\u0060\u0060") }
                     EditorTool("分割线") { insertMarkdown("---") }
@@ -514,7 +514,7 @@ fun ShijiApp() {
                 Spacer(Modifier.height(8.dp))
                 if (preview) {
                     Surface(Modifier.fillMaxWidth().weight(1f), color = Panel, shape = RoundedCornerShape(16.dp)) {
-                        MarkdownPreview(body, Modifier.fillMaxSize().padding(16.dp))
+                        MarkdownPreview(body.text, Modifier.fillMaxSize().padding(16.dp))
                     }
                 } else {
                     OutlinedTextField(
@@ -528,7 +528,7 @@ fun ShijiApp() {
                     )
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("提示：工具栏会在正文末尾插入 Markdown 标记；切换「预览」可查看排版效果。", color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text("提示：选中正文后使用工具栏可格式化选区；未选中时会在光标处插入标记。", color = Muted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
