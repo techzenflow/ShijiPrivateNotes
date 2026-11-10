@@ -1,5 +1,14 @@
 # 测试版更新日志（Beta）
 
+## 1.0.1-beta.14 — 2026-11-10
+- 笔记支持置顶与收藏，置顶笔记在列表中优先显示。
+- 新增「全部 / 收藏」筛选，收藏状态可直接在笔记卡片切换。
+- Room 数据库升级至 v3，新增置顶与收藏字段，并提供 2→3 显式迁移；旧笔记默认不置顶、不收藏。
+- 发布流程自动从 CHANGELOG.md 提取本版本更新内容写入 GitHub Release 正文，不再只提示用户去仓库查看日志。
+- Android versionCode：15。
+
+
+
 ## 1.0.1-beta.12 — 2026-11-10
 - 引入持久 Release 签名配置，需在 GitHub Actions Secrets 中配置签名材料。
 - 不再使用 Debug keystore cache 对发布 APK 签名。

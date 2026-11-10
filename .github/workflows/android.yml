@@ -102,6 +102,15 @@ jobs:
           (cd dist && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
           echo "APK_FILE=$APK" >> "$GITHUB_ENV"
           echo "SHA_FILE=$APK.sha256" >> "$GITHUB_ENV"
+      - name: Generate release notes from changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.name }}"
+          mkdir -p dist
+          awk -v heading="## $VERSION" '$0 == heading { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > dist/release-notes.md
+          test -s dist/release-notes.md || { echo "No changelog entry found for $VERSION"; exit 1; }
+          printf '\n## 安装包与验证\n- 安装包：Android Universal APK。\n- 校验：同一 Release 附带 SHA-256 校验文件。\n- 自动检查：单元测试、Release APK 构建、签名与包名验证。\n- 设备说明：自动构建不等同于真机指纹识别、安装升级和数据迁移实测；请勿在备份前卸载旧版。\n' >> dist/release-notes.md
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -117,11 +126,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.name }}
           name: 时迹私人笔记 v${{ steps.version.outputs.name }}
-          body: |
-            ## 本次更新
-            请查看仓库 CHANGELOG.md 与 docs/CHANGELOG_BETA.md / docs/CHANGELOG_STABLE.md。
-            ## 测试说明
-            自动化单元测试、构建和 APK 签名验证结果见本次 Actions 运行记录。真机指纹和覆盖安装仍需设备实测。
+          body_path: dist/release-notes.md
           prerelease: ${{ steps.version.outputs.prerelease }}
           make_latest: ${{ steps.version.outputs.latest }}
           files: |
