@@ -25,7 +25,9 @@ data class NoteVersionEntity(
     val title: String,
     val body: String,
     val savedAt: Long,
-    val reason: String
+    val reason: String,
+    val category: String = "",
+    val tags: String = ""
 )
 
 @Entity(tableName = "vault_items")
@@ -83,7 +85,7 @@ interface NotesDao {
     }
 }
 
-@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 4, exportSchema = false)
+@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 5, exportSchema = false)
 abstract class ShijiDatabase : RoomDatabase() {
     abstract fun dao(): NotesDao
     companion object {
@@ -104,11 +106,17 @@ abstract class ShijiDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
             }
         }
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE note_versions ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE note_versions ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
+            }
+        }
         @Volatile private var INSTANCE: ShijiDatabase? = null
         fun get(context: android.content.Context): ShijiDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(context.applicationContext, ShijiDatabase::class.java, "shiji_local.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { INSTANCE = it }
             }
     }

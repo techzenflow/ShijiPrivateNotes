@@ -313,8 +313,8 @@ fun ShijiApp() {
                                 val current = dao.getNote(note.id) ?: return@launch
                                 val now = System.currentTimeMillis()
                                 val next = dao.maxVersion(note.id) + 1
-                                dao.insertVersion(NoteVersionEntity(noteId=note.id, versionNo=next, title=v.title, body=v.body, savedAt=now, reason="从 V${v.versionNo} 恢复").encryptFields(key))
-                                dao.updateNote(current.decryptFields(key).copy(title=v.title, body=v.body, updatedAt=now).encryptFields(key))
+                                dao.insertVersion(NoteVersionEntity(noteId=note.id, versionNo=next, title=v.title, body=v.body, category=v.category, tags=v.tags, savedAt=now, reason="从 V${v.versionNo} 恢复").encryptFields(key))
+                                dao.updateNote(current.decryptFields(key).copy(title=v.title, body=v.body, category=v.category, tags=v.tags, updatedAt=now).encryptFields(key))
                             }
                         }) } }
                         "trash" -> {
@@ -422,16 +422,16 @@ fun ShijiApp() {
                     if (selected == null) {
                         val key = masterKey ?: return@launch
                         val id = dao.insertNote(NoteEntity(title=title, body=body, category=category, tags=tags, createdAt=now, updatedAt=now).encryptFields(key))
-                        dao.insertVersion(NoteVersionEntity(noteId=id, versionNo=1, title=title, body=body, savedAt=now, reason="创建笔记").encryptFields(key))
+                        dao.insertVersion(NoteVersionEntity(noteId=id, versionNo=1, title=title, body=body, category=category, tags=tags, savedAt=now, reason="创建笔记").encryptFields(key))
                     } else {
                         val key = masterKey ?: return@launch
                         val old = dao.getNote(selected!!.id)!!.decryptFields(key)
                         if (old.title != title || old.body != body || old.category != category || old.tags != tags) {
                             val v = dao.maxVersion(old.id) + 1
-                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=v, title=old.title, body=old.body, savedAt=now, reason="编辑前自动快照").encryptFields(key))
+                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=v, title=old.title, body=old.body, category=old.category, tags=old.tags, savedAt=now, reason="编辑前自动快照").encryptFields(key))
                             dao.updateNote(old.copy(title=title, body=body, category=category, tags=tags, updatedAt=now).encryptFields(key))
                             val nv = dao.maxVersion(old.id) + 1
-                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=nv, title=title, body=body, savedAt=now, reason="保存修改").encryptFields(key))
+                            dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=nv, title=title, body=body, category=category, tags=tags, savedAt=now, reason="保存修改").encryptFields(key))
                         }
                     }
                     showEditor = false
@@ -909,10 +909,13 @@ private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
         }
     }
     dao.getAllVersions().forEach { version ->
-        if (!version.title.startsWith("SHIJI1:") || !version.body.startsWith("SHIJI1:")) {
+        if (!version.title.startsWith("SHIJI1:") || !version.body.startsWith("SHIJI1:") ||
+            !version.category.startsWith("SHIJI1:") || !version.tags.startsWith("SHIJI1:")) {
             dao.updateVersion(version.copy(
                 title = Security.encryptNoteField(key, version.title),
-                body = Security.encryptNoteField(key, version.body)
+                body = Security.encryptNoteField(key, version.body),
+                category = Security.encryptNoteField(key, version.category),
+                tags = Security.encryptNoteField(key, version.tags)
             ))
         }
     }

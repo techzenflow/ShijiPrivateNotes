@@ -46,7 +46,9 @@ object BackupCodec {
                     put(JSONObject().put("id", v.id).put("noteId", v.noteId).put("versionNo", v.versionNo)
                         .put("title", Security.decryptNoteField(masterKey, v.title))
                         .put("body", Security.decryptNoteField(masterKey, v.body))
-                        .put("savedAt", v.savedAt).put("reason", v.reason))
+                        .put("savedAt", v.savedAt).put("reason", v.reason)
+                        .put("category", Security.decryptNoteField(masterKey, v.category))
+                        .put("tags", Security.decryptNoteField(masterKey, v.tags)))
                 }
             })
             .put("vault", JSONArray().apply {
@@ -126,7 +128,9 @@ object BackupCodec {
             NoteVersionEntity(id=v.getLong("id"), noteId=v.getLong("noteId"), versionNo=v.getInt("versionNo"),
                 title=Security.encryptNoteField(masterKey,v.getString("title")),
                 body=Security.encryptNoteField(masterKey,v.getString("body")),
-                savedAt=v.getLong("savedAt"), reason=v.getString("reason"))
+                savedAt=v.getLong("savedAt"), reason=v.getString("reason"),
+                category=Security.encryptNoteField(masterKey,v.optString("category","")),
+                tags=Security.encryptNoteField(masterKey,v.optString("tags","")))
         }
         val vault = (0 until vaultJson.length()).map { i ->
             val v = vaultJson.getJSONObject(i)

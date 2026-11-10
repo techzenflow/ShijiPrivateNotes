@@ -16,11 +16,15 @@ fun NoteEntity.decryptFields(key: ByteArray) = copy(
 )
 fun NoteVersionEntity.encryptFields(key: ByteArray) = copy(
     title = Security.encryptNoteField(key, title),
-    body = Security.encryptNoteField(key, body)
+    body = Security.encryptNoteField(key, body),
+    category = Security.encryptNoteField(key, category),
+    tags = Security.encryptNoteField(key, tags)
 )
 fun NoteVersionEntity.decryptFields(key: ByteArray) = copy(
     title = Security.decryptNoteField(key, title),
-    body = Security.decryptNoteField(key, body)
+    body = Security.decryptNoteField(key, body),
+    category = Security.decryptNoteField(key, category),
+    tags = Security.decryptNoteField(key, tags)
 )
 
 fun NoteEntity.matchesQuery(query: String): Boolean {
