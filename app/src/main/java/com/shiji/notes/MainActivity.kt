@@ -115,8 +115,14 @@ fun ShijiApp() {
                     } catch (e: Exception) { error = e.message ?: "指纹解锁暂不可用" }
                 })
             } else {
-                Column(Modifier.fillMaxSize().padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF111E30)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x223FCBEF))
+                    ) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("时迹", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Cyan)
                             Text("私人笔记 · 本地保险库", color = Muted, style = MaterialTheme.typography.labelMedium)
@@ -156,8 +162,9 @@ fun ShijiApp() {
                             TextButton(onClick = { unlocked = false; masterKey?.fill(0); masterKey = null }) { Text("锁定") }
                         }
                     }
-                    Spacer(Modifier.height(18.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth().background(Color(0xFF0E1726), RoundedCornerShape(18.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         NavChip("笔记", page == "notes") { page = "notes" }
                         NavChip("时间线", page == "timeline") { page = "timeline" }
                         NavChip("密码库", page == "vault") { page = "vault" }
@@ -255,8 +262,18 @@ fun ShijiApp() {
 }
 
 @Composable private fun NavChip(label: String, active: Boolean, click: () -> Unit) {
-    Surface(color=if(active) Color(0xFF163B50) else Panel, shape=RoundedCornerShape(30.dp), modifier=Modifier.clickable(onClick=click)) {
-        Text(label, Modifier.padding(horizontal=18.dp, vertical=10.dp), color=if(active) Cyan else Muted)
+    Surface(
+        color = if (active) Color(0xFF16445A) else Color.Transparent,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.clickable(onClick = click)
+    ) {
+        Text(
+            label,
+            Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
+            color = if (active) Color(0xFF73E5FF) else Muted,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 @Composable private fun LockScreen(configured:Boolean, input:String, onInput:(String)->Unit, error:String, submit:()->Unit, biometric:()->Unit) {
