@@ -69,6 +69,7 @@ fun ShijiApp() {
     var showVaultEditor by remember { mutableStateOf(false) }
     var editingVaultId by remember { mutableStateOf<Long?>(null) }
     var vaultQuery by remember { mutableStateOf("") }
+    var pendingDeleteVaultId by remember { mutableStateOf<Long?>(null) }
     var selectedVersion by remember { mutableStateOf<NoteVersionEntity?>(null) }
     val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
@@ -83,6 +84,9 @@ fun ShijiApp() {
                 site = Security.decryptNoteField(key, item.site)
             )
         } } ?: emptyList()
+    }
+    val visibleVault = remember(vault, vaultQuery) {
+        vault.filter { it.label.contains(vaultQuery, ignoreCase = true) || it.site.contains(vaultQuery, ignoreCase = true) }
     }
     MaterialTheme(colorScheme = darkColorScheme(
         background = Bg, surface = Panel, primary = Cyan, secondary = Color(0xFF8A7CFF),
@@ -321,9 +325,7 @@ fun ShijiApp() {
                                                 }, enabled = credentials?.second?.isNotEmpty() == true) { Text("复制密码") }
                                                 Spacer(Modifier.weight(1f))
                                                 TextButton(onClick = { editingVaultId = item.id; showVaultEditor = true }) { Text("编辑") }
-                                                TextButton(onClick = {
-                                                    scope.launch { rawVault.firstOrNull { it.id == item.id }?.let { dao.deleteVault(it) } }
-                                                }) { Text("删除", color=Color(0xFFFF8792)) }
+                                                TextButton(onClick = { pendingDeleteVaultId = item.id }) { Text("删除", color=Color(0xFFFF8792)) }
                                             }
                                         }
                                     }
@@ -371,6 +373,20 @@ fun ShijiApp() {
                         editingVaultId=null
                     }
                 })
+            }
+            pendingDeleteVaultId?.let { id ->
+                AlertDialog(
+                    onDismissRequest = { pendingDeleteVaultId = null },
+                    title = { Text("删除这条账号记录？") },
+                    text = { Text("删除后将无法恢复。") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            scope.launch { rawVault.firstOrNull { it.id == id }?.let { dao.deleteVault(it) } }
+                            pendingDeleteVaultId = null
+                        }) { Text("永久删除", color = Color(0xFFFF8792)) }
+                    },
+                    dismissButton = { TextButton(onClick = { pendingDeleteVaultId = null }) { Text("取消") } }
+                )
             }
             selectedVersion?.let { v -> masterKey?.let { key -> VersionCompare(v, dao, key, onClose={selectedVersion=null}) } }
         }
