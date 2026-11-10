@@ -54,6 +54,10 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.rgb(8,13,24)
         window.navigationBarColor = android.graphics.Color.rgb(8,13,24)
+        window.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE
+        )
         setContent { ShijiApp() }
     }
 }
