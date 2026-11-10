@@ -64,7 +64,14 @@ object BackupCodec {
         return try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
-            magic + salt + iv + cipher.doFinal(payload.toString().toByteArray(StandardCharsets.UTF_8))
+            val plainBytes = payload.toString().toByteArray(StandardCharsets.UTF_8)
+            try {
+                val output = magic + salt + iv + cipher.doFinal(plainBytes)
+                require(output.size <= MAX_BACKUP_BYTES) { "备份内容超过 100 MB 限制" }
+                output
+            } finally {
+                plainBytes.fill(0)
+            }
         } finally {
             key.fill(0)
             backupPassword.fill('\u0000')
@@ -72,8 +79,14 @@ object BackupCodec {
     }
 
     fun restore(bytes: ByteArray, backupPassword: CharArray, masterKey: ByteArray): BackupData {
-        require(bytes.size in (magic.size + SALT_SIZE + IV_SIZE + 16)..MAX_BACKUP_BYTES) { "备份文件大小无效" }
-        require(bytes.copyOfRange(0, magic.size).contentEquals(magic)) { "不是有效的时迹加密备份文件" }
+        if (bytes.size !in (magic.size + SALT_SIZE + IV_SIZE + 16)..MAX_BACKUP_BYTES) {
+            backupPassword.fill('\\u0000')
+            throw IllegalArgumentException("备份文件大小无效")
+        }
+        if (!bytes.copyOfRange(0, magic.size).contentEquals(magic)) {
+            backupPassword.fill('\\u0000')
+            throw IllegalArgumentException("不是有效的时迹加密备份文件")
+        }
         val saltStart = magic.size
         val ivStart = saltStart + SALT_SIZE
         val cipherStart = ivStart + IV_SIZE
@@ -89,7 +102,7 @@ object BackupCodec {
             key.fill(0)
             backupPassword.fill('\u0000')
         }
-        val root = JSONObject(String(plain, StandardCharsets.UTF_8))
+        val root = try { JSONObject(String(plain, StandardCharsets.UTF_8)) } finally { plain.fill(0) }
         require(root.optInt("format", -1) == 1) { "暂不支持此备份格式" }
         val notesJson = root.getJSONArray("notes")
         val versionsJson = root.getJSONArray("versions")
@@ -120,6 +133,11 @@ object BackupCodec {
                 notesCipher=Security.encrypt(masterKey,v.getString("notes")),
                 createdAt=v.getLong("createdAt"), updatedAt=v.getLong("updatedAt"))
         }
+        require(notes.all { it.id > 0 } && notes.map { it.id }.distinct().size == notes.size) { "备份中的笔记编号重复或无效" }
+        require(versions.all { it.id > 0 && it.versionNo > 0 } && versions.map { it.id }.distinct().size == versions.size) {
+            "备份中的历史版本编号重复或无效"
+        }
+        require(vault.all { it.id > 0 } && vault.map { it.id }.distinct().size == vault.size) { "备份中的密码库编号重复或无效" }
         val noteIds = notes.map { it.id }.toSet()
         require(versions.all { it.noteId in noteIds }) { "备份中存在无法关联的历史版本" }
         return BackupData(notes, versions, vault)
