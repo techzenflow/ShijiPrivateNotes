@@ -241,7 +241,7 @@ fun ShijiApp() {
                     }
                     }
                     Spacer(Modifier.height(16.dp))
-                    Row(Modifier.fillMaxWidth().background(Color(0xFF0E1726), RoundedCornerShape(18.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).background(Color(0xFF0E1726), RoundedCornerShape(18.dp)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         NavChip("笔记", page == "notes") { page = "notes" }
                         NavChip("时间线", page == "timeline") { page = "timeline" }
                         NavChip("密码库", page == "vault") { page = "vault" }
