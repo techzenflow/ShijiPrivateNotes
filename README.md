@@ -23,23 +23,18 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 
 ## 发布文件命名规范
 统一格式：`{Project}-{Version}-{Platform}-{Architecture}.{Extension}`。
-
-示例：
-- `ShijiPrivateNotes-1.0.1-beta.5-Android-universal.apk`
-- `ShijiPrivateNotes-1.0.1-beta.5-Android-arm64-v8a.apk`（仅在实际构建对应 ABI 专用包时使用）
-- 每个安装包同时提供同名 `.sha256` 文件。
-
-架构字段必须反映实际 APK 内容：通用包使用 `universal`；仅含 ARM64 原生库时才标记 `arm64-v8a`；不得把通用包误标成单一架构。文件名顺序固定，便于用户和下载工具识别。
+- `ShijiPrivateNotes-1.0.1-beta.6-Android-universal.apk`
+- 每个 APK 同时提供同名 `.sha256` 文件。
+- 架构字段必须反映 APK 实际内容；通用包标记 `universal`。
 
 ## 版本与变更日志规则
-- 每一次代码/功能/界面/修复修改，都必须递增 `versionCode` 和 `versionName`，不得复用已发布版本号。
-- 测试版本使用 `1.0.x-beta.n`，Git tag 使用 `v1.0.x-beta.n`；每次 Beta 修改递增 n。
-- 正式版本使用稳定语义版本号（例如 `1.0.0`）。
-- 所有 Beta 和正式版 GitHub Release 均使用普通 Release，不勾选 Pre-release。Beta 仍须在标题和日志中明确标注 Beta。
-- 每次修改都要更新 `CHANGELOG.md` 和 `docs/CHANGELOG_BETA.md`；正式发布时还必须更新 `docs/CHANGELOG_STABLE.md`。
-- GitHub Release 使用唯一版本 tag，并在正文写明变更、文件说明、测试状态和已知问题。
-- APK 的 `applicationId` 保持 `com.shiji.notes`。覆盖安装还要求新旧 APK 使用同一签名密钥。
-- Android 发布构建串行执行，APK 上传前验证签名并生成 SHA-256 校验文件。
+- 每次应用代码修改递增 `versionCode` 和 `versionName`，不得复用已发布版本号。
+- Beta 使用 `1.0.x-beta.n`，Git tag 使用 `v1.0.x-beta.n`。
+- **Beta GitHub Release 勾选 Pre-release；正式版不勾选 Pre-release。**
+- Beta 不覆盖正式版 Latest；正式版发布时设为 Latest。
+- 每次修改更新 `CHANGELOG.md` 与 `docs/CHANGELOG_BETA.md`；正式发布时更新 `docs/CHANGELOG_STABLE.md`。
+- `applicationId` 保持 `com.shiji.notes`；覆盖安装还要求新旧 APK 使用同一签名密钥。
+- Release 构建串行执行，上传前验证 APK 签名并生成 SHA-256。
 
 ## 变更日志
 - [完整变更记录](CHANGELOG.md)
@@ -47,4 +42,4 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 - [正式版变更记录](docs/CHANGELOG_STABLE.md)
 
 ## GitHub Actions
-推送到 main/master 后自动构建 APK，并按版本号创建 GitHub 普通 Release（不使用 Pre-release 标记）。最新 Beta 也会作为 Latest 显示。
+推送到 main/master 会运行构建验证；推送版本 tag（例如 `v1.0.1-beta.6`）会生成并发布对应 Release。Beta 自动标记 Pre-release，正式版本自动作为 Latest。
