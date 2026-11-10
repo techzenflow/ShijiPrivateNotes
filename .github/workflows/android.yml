@@ -108,7 +108,7 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.name }}"
           mkdir -p dist
-          awk -v heading="## $VERSION" '$0 == heading { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > dist/release-notes.md
+          awk -v heading="## $VERSION" 'index($0, heading) == 1 { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > dist/release-notes.md
           test -s dist/release-notes.md || { echo "No changelog entry found for $VERSION"; exit 1; }
           printf '\n## 安装包与验证\n- 安装包：Android Universal APK。\n- 校验：同一 Release 附带 SHA-256 校验文件。\n- 自动检查：单元测试、Release APK 构建、签名与包名验证。\n- 设备说明：自动构建不等同于真机指纹识别、安装升级和数据迁移实测；请勿在备份前卸载旧版。\n' >> dist/release-notes.md
       - name: Upload APK artifact
@@ -130,7 +130,7 @@ jobs:
           for VERSION in 1.0.1-beta.13 1.0.1-beta.14; do
             TAG="v$VERSION"
             NOTES="$RUNNER_TEMP/$TAG-notes.md"
-            awk -v heading="## $VERSION" '$0 == heading { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$NOTES"
+            awk -v heading="## $VERSION" 'index($0, heading) == 1 { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$NOTES"
             if [[ -s "$NOTES" ]] && gh release view "$TAG" >/dev/null 2>&1; then
               printf '\n## 安装包与验证\n- 自动检查：单元测试、Release APK 构建、签名与包名验证。\n- 真机指纹识别、安装升级和数据迁移仍需设备实测；请勿在备份前卸载旧版。\n' >> "$NOTES"
               gh release edit "$TAG" --notes-file "$NOTES"
