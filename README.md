@@ -25,11 +25,11 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 - 每一次代码/功能/界面/修复修改，都必须同时递增 `versionCode` 和 `versionName`，不得复用已发布版本号。
 - 测试版本使用 `1.0.x-beta.n`，Git tag 使用 `v1.0.x-beta.n`；每次 Beta 修改递增 n。
 - 正式版本使用稳定语义版本号（例如 `1.0.0`）。
-- 所有 Beta 和正式版 GitHub Release 均使用普通 Release，**不勾选 Pre-release**。Beta 仍须在标题和日志中明确标注 Beta，普通 Release 不代表通过正式版验收。
-- 每次修改都要更新 `CHANGELOG.md`（总日志）及 `docs/CHANGELOG_BETA.md`（测试版日志）。
-- 正式发布时还必须更新 `docs/CHANGELOG_STABLE.md`；Beta 内容不得自动混入正式版日志。
-- GitHub Release 必须使用唯一版本 tag，并在 Release 正文写明该版本变更、测试状态和已知问题。
-- APK 的 `applicationId` 必须保持 `com.shiji.notes`。保持签名密钥不变，才能覆盖安装；首次更换签名时可能仍需卸载旧版。
+- 所有 Beta 和正式版 GitHub Release 均使用普通 Release，不勾选 Pre-release。Beta 仍须在标题和日志中明确标注 Beta。
+- 每次修改都要更新 `CHANGELOG.md` 和 `docs/CHANGELOG_BETA.md`；正式发布时还必须更新 `docs/CHANGELOG_STABLE.md`。
+- GitHub Release 使用唯一版本 tag，并在正文写明变更、测试状态和已知问题。
+- APK 的 `applicationId` 保持 `com.shiji.notes`。覆盖安装还要求新旧 APK 使用同一签名密钥。
+- GitHub Actions Android 构建必须串行执行，避免多个 runner 同时初始化 Debug 签名密钥缓存；APK 上传前必须通过签名校验。
 
 ## 变更日志
 - [完整变更记录](CHANGELOG.md)
