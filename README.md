@@ -13,7 +13,7 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 - 数据仅保存在应用私有目录，不请求网络权限。
 
 ## 打开与构建
-1. 安装 Android Studio（建议 Iguana 或更新版本）及 Android SDK Platform 35。
+1. 安装 Android Studio 及 Android SDK Platform 35。
 2. 打开本项目根目录，等待 Gradle Sync。
 3. 使用 JDK 17。
 4. 连接 Android 手机并启用 USB 调试，或在 Android Studio 选择 Build > Build APK(s)。
@@ -21,9 +21,19 @@ Android 原生离线笔记与密码库项目。技术栈：Kotlin、Jetpack Comp
 
 最低系统 Android 8.0（API 26）；目标 API 35。首次运行设置主密码。请牢记主密码：本应用不提供云端找回。
 
-## 安全说明
-这是本地优先的个人资料管理器初始完整工程。不要把它当作经过第三方审计的专业密码管理器。主密码派生密钥不会上传；遗忘主密码可能导致私密条目无法解密。建议先用非关键资料测试并定期导出/备份（加密备份功能可在后续版本补充）。
+## 版本与变更日志规则
+- 每一次代码/功能/界面/修复修改，都必须同时递增 `versionCode` 和 `versionName`，不得复用已发布版本号。
+- 测试版本使用 `1.0.x-beta.n`，Git tag 使用 `v1.0.x-beta.n`；每次 Beta 修改递增 n。
+- 正式版本使用稳定语义版本号（例如 `1.0.0`），正式版本不得标记为 prerelease。
+- 每次修改都要更新 `CHANGELOG.md`（总日志）及 `docs/CHANGELOG_BETA.md`（测试版日志）。
+- 正式发布时还必须更新 `docs/CHANGELOG_STABLE.md`；Beta 内容不得自动混入正式版日志。
+- GitHub Release 必须使用唯一版本 tag，并在 Release 正文写明该版本变更、测试状态和已知问题。
+- APK 的 `applicationId` 必须保持 `com.shiji.notes`。保持签名密钥不变，才能覆盖安装；首次更换签名时可能仍需卸载旧版。
 
+## 变更日志
+- [完整变更记录](CHANGELOG.md)
+- [测试版变更记录](docs/CHANGELOG_BETA.md)
+- [正式版变更记录](docs/CHANGELOG_STABLE.md)
 
-## GitHub Actions 自动编译
-仓库已包含 `.github/workflows/android.yml`。上传到 GitHub 的 `main` 或 `master` 分支后会自动编译；也可在仓库的 Actions 页面手动运行 `Android APK`。成功后进入对应运行记录，在 Artifacts 下载 `shiji-debug-apk`，解压得到 `app-debug.apk`。该 APK 是 debug 签名，适合测试安装；正式发布需配置自己的签名密钥。
+## GitHub Actions
+推送到 main/master 后自动构建 APK，并按 workflow 配置创建版本化 GitHub Release。测试版 Release 标记为 Pre-release；正式版使用独立稳定版本 tag。
