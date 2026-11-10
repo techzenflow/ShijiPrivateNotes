@@ -7,6 +7,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import com.shiji.notes.data.NoteEntity
+import com.shiji.notes.data.NoteVersionEntity
+import com.shiji.notes.data.encryptFields
+import com.shiji.notes.data.decryptFields
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
@@ -40,6 +44,21 @@ class SecurityTest {
         assertEquals(field, Security.encryptNoteField(key, field))
         assertEquals("note body", Security.decryptNoteField(key, field))
         assertEquals("legacy", Security.decryptNoteField(key, "legacy"))
+    }
+
+    @Test fun noteAndHistoryFieldsAreEncryptedAtRestAndRoundTrip() {
+        val note = NoteEntity(id=4, title="private title", body="private body", createdAt=1, updatedAt=2)
+        val storedNote = note.encryptFields(key)
+        assertTrue(storedNote.title.startsWith("SHIJI1:"))
+        assertTrue(storedNote.body.startsWith("SHIJI1:"))
+        assertFalse(storedNote.title.contains("private"))
+        assertEquals(note, storedNote.decryptFields(key))
+
+        val version = NoteVersionEntity(id=9, noteId=4, versionNo=2, title="old title", body="old body", savedAt=3, reason="snapshot")
+        val storedVersion = version.encryptFields(key)
+        assertTrue(storedVersion.body.startsWith("SHIJI1:"))
+        assertFalse(storedVersion.body.contains("old body"))
+        assertEquals(version, storedVersion.decryptFields(key))
     }
 
     @Test fun masterPasswordSetupAndUnlock() {
