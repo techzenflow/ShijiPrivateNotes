@@ -246,6 +246,7 @@ fun ShijiApp() {
                         NavChip("时间线", page == "timeline") { page = "timeline" }
                         NavChip("密码库", page == "vault") { page = "vault" }
                         NavChip("回收站", page == "trash") { page = "trash" }
+                        NavChip("备份", page == "backup") { page = "backup" }
                     }
                     Spacer(Modifier.height(12.dp))
                     if (error.isNotBlank()) Text(error, color=Cyan)
@@ -333,6 +334,33 @@ fun ShijiApp() {
                                     }
                                 }
                             }
+                        }
+                        "backup" -> {
+                            Text("加密备份与恢复", style = MaterialTheme.typography.titleLarge)
+                            Spacer(Modifier.height(6.dp))
+                            Text("备份文件由独立备份密码保护。恢复时会将笔记、历史版本、回收站记录和密码库重新加密到当前主密钥下。", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(14.dp))
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("创建加密备份", fontWeight = FontWeight.Bold)
+                                    Text("请设置至少 10 位的备份密码。它独立于应用主密码，忘记后无法恢复备份。", color = Muted, style = MaterialTheme.typography.bodySmall)
+                                    Button(onClick = { showBackupPasswordDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Icon(Icons.Default.Lock, null); Spacer(Modifier.width(8.dp)); Text("导出加密备份")
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("从备份恢复", fontWeight = FontWeight.Bold)
+                                    Text("恢复会替换当前笔记、历史版本、回收站和密码库。请先确保已有可用备份。", color = Muted, style = MaterialTheme.typography.bodySmall)
+                                    OutlinedButton(onClick = { openBackupLauncher.launch(arrayOf("application/octet-stream", "application/*", "*/*")) }, modifier = Modifier.fillMaxWidth()) {
+                                        Icon(Icons.Default.Restore, null); Spacer(Modifier.width(8.dp)); Text("选择备份文件")
+                                    }
+                                }
+                            }
+                            if (backupStatus.isNotBlank()) Text(backupStatus, color = Cyan, style = MaterialTheme.typography.bodySmall)
+                            Text("当前版本暂不包含附件文件；附件加密与备份会在附件模块完成后接入。", color = Muted, style = MaterialTheme.typography.labelSmall)
                         }
                         "vault" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
