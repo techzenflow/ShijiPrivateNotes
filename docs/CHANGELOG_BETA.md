@@ -2,6 +2,12 @@
 
 仅记录 Beta 测试版本。每次 Beta 修改均新增版本号和记录，不覆盖历史条目。Beta Release 在 GitHub 上使用普通 Release（不勾选 Pre-release）。
 
+## 1.0.1-beta.4 — 2026-11-10
+- Android Actions 构建串行化，避免并发初始化 Debug 签名密钥缓存。
+- 增加 APK 签名验证步骤，验证成功才上传。
+- versionCode：5。
+- 测试目标：验证安装及覆盖升级；需目标手机实测。
+
 ## 1.0.1-beta.3 — 2026-11-10
 - 取消 GitHub Pre-release 标记，Beta 版本以普通 Release 显示。
 - 将该版本设为 GitHub Latest，方便从仓库主页进入最新版本。
