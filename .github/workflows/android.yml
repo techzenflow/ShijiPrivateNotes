@@ -120,6 +120,22 @@ jobs:
             ${{ env.SHA_FILE }}
           if-no-files-found: error
           retention-days: 14
+      - name: Refresh existing release notes from changelog
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for VERSION in 1.0.1-beta.13 1.0.1-beta.14; do
+            TAG="v$VERSION"
+            NOTES="$RUNNER_TEMP/$TAG-notes.md"
+            awk -v heading="## $VERSION" '$0 == heading { found=1; print; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$NOTES"
+            if [[ -s "$NOTES" ]] && gh release view "$TAG" >/dev/null 2>&1; then
+              printf '\n## 安装包与验证\n- 自动检查：单元测试、Release APK 构建、签名与包名验证。\n- 真机指纹识别、安装升级和数据迁移仍需设备实测；请勿在备份前卸载旧版。\n' >> "$NOTES"
+              gh release edit "$TAG" --notes-file "$NOTES"
+            fi
+          done
       - name: Publish versioned Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
