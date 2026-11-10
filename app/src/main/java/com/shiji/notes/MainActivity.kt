@@ -278,6 +278,9 @@ fun ShijiApp() {
                                                 Text(note.title.ifBlank { "无标题" }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                                 if (note.isPinned) Text("已置顶", color = Cyan, style = MaterialTheme.typography.labelSmall)
                                             }
+                                            if (note.category.isNotBlank() || note.tags.isNotBlank()) {
+                                                Text(listOf(note.category, note.tags.takeIf { it.isNotBlank() }?.let { "#$it" }).filterNotNull().filter { it.isNotBlank() }.joinToString(" · "), color = Cyan, style = MaterialTheme.typography.labelSmall)
+                                            }
                                             Text(note.body, color = Muted, maxLines = 2)
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                                 Text("更新于 ${date(note.updatedAt)}", color = Cyan, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
@@ -413,20 +416,20 @@ fun ShijiApp() {
                     }
                 }
             }
-            if (showEditor) NoteEditor(selected, onClose = { showEditor = false }, onSave = { title, body ->
+            if (showEditor) NoteEditor(selected, onClose = { showEditor = false }, onSave = { title, body, category, tags ->
                 scope.launch {
                     val now = System.currentTimeMillis()
                     if (selected == null) {
                         val key = masterKey ?: return@launch
-                        val id = dao.insertNote(NoteEntity(title=title, body=body, createdAt=now, updatedAt=now).encryptFields(key))
+                        val id = dao.insertNote(NoteEntity(title=title, body=body, category=category, tags=tags, createdAt=now, updatedAt=now).encryptFields(key))
                         dao.insertVersion(NoteVersionEntity(noteId=id, versionNo=1, title=title, body=body, savedAt=now, reason="创建笔记").encryptFields(key))
                     } else {
                         val key = masterKey ?: return@launch
                         val old = dao.getNote(selected!!.id)!!.decryptFields(key)
-                        if (old.title != title || old.body != body) {
+                        if (old.title != title || old.body != body || old.category != category || old.tags != tags) {
                             val v = dao.maxVersion(old.id) + 1
                             dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=v, title=old.title, body=old.body, savedAt=now, reason="编辑前自动快照").encryptFields(key))
-                            dao.updateNote(old.copy(title=title, body=body, updatedAt=now).encryptFields(key))
+                            dao.updateNote(old.copy(title=title, body=body, category=category, tags=tags, updatedAt=now).encryptFields(key))
                             val nv = dao.maxVersion(old.id) + 1
                             dao.insertVersion(NoteVersionEntity(noteId=old.id, versionNo=nv, title=title, body=body, savedAt=now, reason="保存修改").encryptFields(key))
                         }
@@ -653,8 +656,10 @@ fun ShijiApp() {
         }
     }
 }
-@Composable private fun NoteEditor(note: NoteEntity?, onClose: () -> Unit, onSave: (String, String) -> Unit) {
+@Composable private fun NoteEditor(note: NoteEntity?, onClose: () -> Unit, onSave: (String, String, String, String) -> Unit) {
     var title by remember(note?.id) { mutableStateOf(note?.title ?: "") }
+    var category by remember(note?.id) { mutableStateOf(note?.category ?: "") }
+    var tags by remember(note?.id) { mutableStateOf(note?.tags ?: "") }
     var body by remember(note?.id) { mutableStateOf(TextFieldValue(note?.body ?: "")) }
     var preview by remember { mutableStateOf(false) }
     val words = remember(body.text) { body.text.trim().split(Regex("\\s+")).count { it.isNotBlank() } }
@@ -676,7 +681,7 @@ fun ShijiApp() {
                         Text("本地加密保存 · Markdown 编辑器", color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(onClick = onClose) { Text("取消") }
-                    Button(onClick = { onSave(title.trim(), body.text) }, enabled = title.isNotBlank() || body.text.isNotBlank()) { Text("保存") }
+                    Button(onClick = { onSave(title.trim(), body.text, category.trim(), tags.split(",").map { it.trim() }.filter { it.isNotBlank() }.distinct().joinToString(",")) }, enabled = title.isNotBlank() || body.text.isNotBlank()) { Text("保存") }
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
@@ -688,6 +693,11 @@ fun ShijiApp() {
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp)
                 )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value=category,onValueChange={category=it},modifier=Modifier.weight(1f),label={Text("分类")},singleLine=true)
+                    OutlinedTextField(value=tags,onValueChange={tags=it},modifier=Modifier.weight(1f),label={Text("标签（逗号分隔）")},singleLine=true)
+                }
                 Spacer(Modifier.height(10.dp))
                 Row(
                     Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(5.dp)
@@ -880,10 +890,13 @@ private fun generateStrongPassword(length: Int): String {
 private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
     val notes = dao.getAllNotes()
     notes.forEach { note ->
-        if (!note.title.startsWith("SHIJI1:") || !note.body.startsWith("SHIJI1:")) {
+        if (!note.title.startsWith("SHIJI1:") || !note.body.startsWith("SHIJI1:") ||
+            !note.category.startsWith("SHIJI1:") || !note.tags.startsWith("SHIJI1:")) {
             dao.updateNote(note.copy(
                 title = Security.encryptNoteField(key, note.title),
-                body = Security.encryptNoteField(key, note.body)
+                body = Security.encryptNoteField(key, note.body),
+                category = Security.encryptNoteField(key, note.category),
+                tags = Security.encryptNoteField(key, note.tags)
             ))
         }
     }

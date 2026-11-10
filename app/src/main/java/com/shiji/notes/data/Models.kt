@@ -11,6 +11,8 @@ data class NoteEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,
+    val category: String = "",
+    val tags: String = "",
     val isPinned: Boolean = false,
     val isFavorite: Boolean = false
 )
@@ -81,7 +83,7 @@ interface NotesDao {
     }
 }
 
-@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 3, exportSchema = false)
+@Database(entities = [NoteEntity::class, NoteVersionEntity::class, VaultItemEntity::class], version = 4, exportSchema = false)
 abstract class ShijiDatabase : RoomDatabase() {
     abstract fun dao(): NotesDao
     companion object {
@@ -96,11 +98,17 @@ abstract class ShijiDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE notes ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
             }
         }
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
+            }
+        }
         @Volatile private var INSTANCE: ShijiDatabase? = null
         fun get(context: android.content.Context): ShijiDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(context.applicationContext, ShijiDatabase::class.java, "shiji_local.db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build().also { INSTANCE = it }
             }
     }

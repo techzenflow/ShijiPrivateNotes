@@ -36,6 +36,8 @@ object BackupCodec {
                         .put("body", Security.decryptNoteField(masterKey, n.body))
                         .put("createdAt", n.createdAt).put("updatedAt", n.updatedAt)
                         .put("deletedAt", n.deletedAt ?: JSONObject.NULL)
+                        .put("category", Security.decryptNoteField(masterKey, n.category))
+                        .put("tags", Security.decryptNoteField(masterKey, n.tags))
                         .put("isPinned", n.isPinned).put("isFavorite", n.isFavorite))
                 }
             })
@@ -115,6 +117,8 @@ object BackupCodec {
             NoteEntity(id=n.getLong("id"), title=Security.encryptNoteField(masterKey,n.getString("title")),
                 body=Security.encryptNoteField(masterKey,n.getString("body")), createdAt=n.getLong("createdAt"),
                 updatedAt=n.getLong("updatedAt"), deletedAt=if(n.isNull("deletedAt")) null else n.getLong("deletedAt"),
+                category=Security.encryptNoteField(masterKey,n.optString("category","")),
+                tags=Security.encryptNoteField(masterKey,n.optString("tags","")),
                 isPinned=n.optBoolean("isPinned",false), isFavorite=n.optBoolean("isFavorite",false))
         }
         val versions = (0 until versionsJson.length()).map { i ->
