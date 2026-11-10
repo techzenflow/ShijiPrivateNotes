@@ -1,6 +1,9 @@
 package com.shiji.notes
 
 import android.os.Bundle
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.biometric.BiometricManager
@@ -30,6 +33,7 @@ import androidx.room.Room
 import com.shiji.notes.data.*
 import com.shiji.notes.security.Security
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +67,8 @@ fun ShijiApp() {
     var selected by remember { mutableStateOf<NoteEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showVaultEditor by remember { mutableStateOf(false) }
+    var editingVaultId by remember { mutableStateOf<Long?>(null) }
+    var vaultQuery by remember { mutableStateOf("") }
     var selectedVersion by remember { mutableStateOf<NoteVersionEntity?>(null) }
     val rawNotes by dao.observeNotes().collectAsState(initial = emptyList())
     val notes = remember(rawNotes, masterKey) { masterKey?.let { key -> rawNotes.map { it.decryptFields(key) } } ?: emptyList() }
@@ -279,20 +285,50 @@ fun ShijiApp() {
                         "vault" -> {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("私密账号", style = MaterialTheme.typography.titleLarge)
-                                Button(onClick = { showVaultEditor = true }) { Icon(Icons.Default.Add, null); Text("添加") }
+                                Row {
+                                    TextButton(onClick = { editingVaultId = null; showVaultEditor = true }) { Text("＋ 添加") }
+                                }
                             }
+                            OutlinedTextField(
+                                value = vaultQuery, onValueChange = { vaultQuery = it },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                                label = { Text("搜索名称或网站") },
+                                leadingIcon = { Icon(Icons.Default.Search, null) }
+                            )
                             val key = masterKey
-                            LazyColumn {
-                                items(vault) { item ->
-                                    Card(Modifier.fillMaxWidth().padding(vertical=5.dp), colors=CardDefaults.cardColors(containerColor=Panel)) {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(visibleVault) { item ->
+                                    Card(Modifier.fillMaxWidth(), colors=CardDefaults.cardColors(containerColor=Panel)) {
                                         Column(Modifier.padding(14.dp)) {
+                                            var reveal by remember(item.id) { mutableStateOf(false) }
                                             Text(item.label, fontWeight=FontWeight.Bold)
                                             Text(item.site, color=Muted)
-                                            var reveal by remember { mutableStateOf(false) }
-                                            Text(if (reveal && key != null) runCatching { Security.decrypt(key, item.usernameCipher) + " · " + Security.decrypt(key, item.passwordCipher) }.getOrDefault("解密失败") else "••••••••", color=Cyan, modifier=Modifier.clickable { reveal = !reveal })
+                                            val credentials = key?.let { k -> runCatching {
+                                                Security.decrypt(k, item.usernameCipher) to Security.decrypt(k, item.passwordCipher)
+                                            }.getOrNull() }
+                                            Text(
+                                                if (reveal && credentials != null) "账号：${credentials.first}\n密码：${credentials.second}" else "••••••••••••",
+                                                color=Cyan, modifier=Modifier.clickable { reveal = !reveal }
+                                            )
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                TextButton(onClick = {
+                                                    val value = credentials?.first.orEmpty()
+                                                    if (value.isNotEmpty()) copySecret(context, scope, value, "账号")
+                                                }, enabled = credentials?.first?.isNotEmpty() == true) { Text("复制账号") }
+                                                TextButton(onClick = {
+                                                    val value = credentials?.second.orEmpty()
+                                                    if (value.isNotEmpty()) copySecret(context, scope, value, "密码")
+                                                }, enabled = credentials?.second?.isNotEmpty() == true) { Text("复制密码") }
+                                                Spacer(Modifier.weight(1f))
+                                                TextButton(onClick = { editingVaultId = item.id; showVaultEditor = true }) { Text("编辑") }
+                                                TextButton(onClick = {
+                                                    scope.launch { rawVault.firstOrNull { it.id == item.id }?.let { dao.deleteVault(it) } }
+                                                }) { Text("删除", color=Color(0xFFFF8792)) }
+                                            }
                                         }
                                     }
                                 }
+                                if (visibleVault.isEmpty()) item { Text("没有匹配的账号记录", color=Muted, modifier=Modifier.padding(16.dp)) }
                             }
                         }
                     }
@@ -319,14 +355,23 @@ fun ShijiApp() {
                     showEditor = false
                 }
             })
-            if (showVaultEditor) VaultEditor(onClose={showVaultEditor=false}, onSave={label,site,user,pass,notesText ->
+            if (showVaultEditor) {
                 val key = masterKey
-                if (key != null) scope.launch {
-                    val now=System.currentTimeMillis()
-                    dao.insertVault(VaultItemEntity(label=Security.encryptNoteField(key,label),site=Security.encryptNoteField(key,site),usernameCipher=Security.encrypt(key,user),passwordCipher=Security.encrypt(key,pass),notesCipher=Security.encrypt(key,notesText),createdAt=now,updatedAt=now))
-                    showVaultEditor=false
-                }
-            })
+                val editingItem = editingVaultId?.let { id -> vault.firstOrNull { it.id == id } }
+                if (key != null) VaultEditor(item=editingItem, key=key, onClose={ showVaultEditor=false; editingVaultId=null }, onSave={label,site,user,pass,notesText ->
+                    scope.launch {
+                        val now=System.currentTimeMillis()
+                        val existing = editingVaultId?.let { id -> rawVault.firstOrNull { it.id == id } }
+                        if (existing == null) {
+                            dao.insertVault(VaultItemEntity(label=Security.encryptNoteField(key,label),site=Security.encryptNoteField(key,site),usernameCipher=Security.encrypt(key,user),passwordCipher=Security.encrypt(key,pass),notesCipher=Security.encrypt(key,notesText),createdAt=now,updatedAt=now))
+                        } else {
+                            dao.updateVault(existing.copy(label=Security.encryptNoteField(key,label),site=Security.encryptNoteField(key,site),usernameCipher=Security.encrypt(key,user),passwordCipher=Security.encrypt(key,pass),notesCipher=Security.encrypt(key,notesText),updatedAt=now))
+                        }
+                        showVaultEditor=false
+                        editingVaultId=null
+                    }
+                })
+            }
             selectedVersion?.let { v -> masterKey?.let { key -> VersionCompare(v, dao, key, onClose={selectedVersion=null}) } }
         }
     }
@@ -613,16 +658,26 @@ fun ShijiApp() {
         }},
         confirmButton={TextButton(onClick=onClose){Text("关闭")}})
 }
-@Composable private fun VaultEditor(onClose:()->Unit,onSave:(String,String,String,String,String)->Unit) {
-    var label by remember { mutableStateOf("") }; var site by remember { mutableStateOf("") }
-    var user by remember { mutableStateOf("") }; var pass by remember { mutableStateOf("") }; var note by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest=onClose,title={Text("添加账号密码")},text={Column {
-        OutlinedTextField(value=label,onValueChange={label=it},label={Text("名称")})
-        OutlinedTextField(value=site,onValueChange={site=it},label={Text("网站 / App")})
-        OutlinedTextField(value=user,onValueChange={user=it},label={Text("账号")})
-        OutlinedTextField(value=pass,onValueChange={pass=it},label={Text("密码")})
-        OutlinedTextField(value=note,onValueChange={note=it},label={Text("备注")})
-    }},confirmButton={TextButton(onClick={onSave(label,site,user,pass,note)}){Text("加密保存")}},dismissButton={TextButton(onClick=onClose){Text("取消")}})
+@Composable private fun VaultEditor(item: VaultItemEntity?, key: ByteArray, onClose:()->Unit,onSave:(String,String,String,String,String)->Unit) {
+    var label by remember(item?.id) { mutableStateOf(item?.label ?: "") }
+    var site by remember(item?.id) { mutableStateOf(item?.site ?: "") }
+    var user by remember(item?.id) { mutableStateOf(item?.let { runCatching { Security.decrypt(key,it.usernameCipher) }.getOrDefault("") } ?: "") }
+    var pass by remember(item?.id) { mutableStateOf(item?.let { runCatching { Security.decrypt(key,it.passwordCipher) }.getOrDefault("") } ?: "") }
+    var note by remember(item?.id) { mutableStateOf(item?.let { runCatching { Security.decrypt(key,it.notesCipher) }.getOrDefault("") } ?: "") }
+    var showPassword by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest=onClose,
+        title={Text(if (item == null) "添加账号密码" else "编辑账号密码")},
+        text={Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            OutlinedTextField(value=label,onValueChange={label=it},label={Text("名称")},singleLine=true)
+            OutlinedTextField(value=site,onValueChange={site=it},label={Text("网站 / App")},singleLine=true)
+            OutlinedTextField(value=user,onValueChange={user=it},label={Text("账号")},singleLine=true)
+            OutlinedTextField(value=pass,onValueChange={pass=it},label={Text("密码")},singleLine=true,visualTransformation=if(showPassword) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(), trailingIcon={TextButton(onClick={showPassword=!showPassword}){Text(if(showPassword) "隐藏" else "显示")}})
+            OutlinedTextField(value=note,onValueChange={note=it},label={Text("备注")},minLines=2)
+        }},
+        confirmButton={TextButton(onClick={onSave(label,site,user,pass,note)},enabled=label.isNotBlank() && pass.isNotBlank()){Text("加密保存")}},
+        dismissButton={TextButton(onClick=onClose){Text("取消")}}
+    )
 }
 private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
     val notes = dao.getAllNotes()
@@ -652,3 +707,13 @@ private suspend fun migrateLegacyNotes(dao: NotesDao, key: ByteArray) {
     }
 }
 private fun date(ms:Long)=SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(ms))
+
+private fun copySecret(context: Context, scope: kotlinx.coroutines.CoroutineScope, value: String, label: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("时迹$label", value))
+    scope.launch {
+        delay(30_000)
+        val current = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull()
+        if (current == value) clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
+    }
+}
