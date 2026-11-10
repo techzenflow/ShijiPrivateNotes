@@ -41,8 +41,8 @@ interface NotesDao {
     @Query("SELECT * FROM notes WHERE deletedAt IS NULL ORDER BY updatedAt DESC")
     fun observeNotes(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
     @Query("SELECT * FROM notes WHERE id=:id") suspend fun getNote(id: Long): NoteEntity?
-    @Query("SELECT * FROM notes") suspend fun getAllNotes()
-    @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC") fun observeTrash(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>: List<NoteEntity>
+    @Query("SELECT * FROM notes") suspend fun getAllNotes(): List<NoteEntity>
+    @Query("SELECT * FROM notes WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC") fun observeTrash(): kotlinx.coroutines.flow.Flow<List<NoteEntity>>
     @Insert suspend fun insertNote(note: NoteEntity): Long
     @Update suspend fun updateNote(note: NoteEntity)
     @Delete suspend fun deleteNote(note: NoteEntity)

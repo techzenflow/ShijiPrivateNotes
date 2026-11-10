@@ -11,8 +11,8 @@ android {
         applicationId = "com.shiji.notes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.0.1-beta.9"
+        versionCode = 11
+        versionName = "1.0.1-beta.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
