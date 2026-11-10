@@ -452,6 +452,60 @@ fun ShijiApp() {
                     }
                 })
             }
+            if (showBackupPasswordDialog) AlertDialog(
+                onDismissRequest = { showBackupPasswordDialog = false },
+                title = { Text("设置备份密码") },
+                text = {
+                    Column {
+                        OutlinedTextField(value=exportPassword,onValueChange={exportPassword=it},label={Text("备份密码（至少 10 位）")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())
+                        Text("此密码不会上传或保存在应用中。请单独妥善保管。", color=Muted, style=MaterialTheme.typography.bodySmall)
+                    }
+                },
+                confirmButton = {
+                    TextButton(enabled=exportPassword.length >= 10,onClick={
+                        pendingExportPassword=exportPassword
+                        exportPassword=""
+                        showBackupPasswordDialog=false
+                        createBackupLauncher.launch("ShijiPrivateNotes-backup.sjbackup")
+                    }) { Text("继续") }
+                },
+                dismissButton = { TextButton(onClick={showBackupPasswordDialog=false}) { Text("取消") } }
+            )
+            if (showRestorePasswordDialog) AlertDialog(
+                onDismissRequest = { showRestorePasswordDialog=false; pendingRestoreBytes=null },
+                title = { Text("输入备份密码") },
+                text = { OutlinedTextField(value=restorePassword,onValueChange={restorePassword=it},label={Text("备份密码")},singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation()) },
+                confirmButton = {
+                    TextButton(enabled=restorePassword.isNotEmpty(),onClick={showRestorePasswordDialog=false;showRestoreConfirm=true}) { Text("下一步") }
+                },
+                dismissButton = { TextButton(onClick={showRestorePasswordDialog=false;pendingRestoreBytes=null}) { Text("取消") } }
+            )
+            if (showRestoreConfirm) AlertDialog(
+                onDismissRequest = { showRestoreConfirm=false },
+                title = { Text("确认替换当前数据？") },
+                text = { Text("恢复成功后，当前笔记、历史版本、回收站和密码库将被备份内容替换。导入前会先验证备份密码、文件完整性和记录关联。") },
+                confirmButton = {
+                    TextButton(onClick={
+                        val bytes=pendingRestoreBytes
+                        val key=masterKey
+                        showRestoreConfirm=false
+                        if(bytes!=null && key!=null) scope.launch(Dispatchers.IO) {
+                            try {
+                                val data=BackupCodec.restore(bytes,restorePassword.toCharArray(),key)
+                                dao.replaceAllData(data.notes,data.versions,data.vault)
+                                withContext(Dispatchers.Main) {
+                                    backupStatus="恢复完成：笔记 ${data.notes.size} 篇，历史版本 ${data.versions.size} 条，密码库 ${data.vault.size} 条。"
+                                    pendingRestoreBytes=null
+                                    restorePassword=""
+                                }
+                            } catch(e:Exception) {
+                                withContext(Dispatchers.Main) { backupStatus="恢复失败：" + (e.message ?: "备份无效"); pendingRestoreBytes=null; restorePassword="" }
+                            }
+                        }
+                    }) { Text("确认恢复", color=Color(0xFFFF8792)) }
+                },
+                dismissButton = { TextButton(onClick={showRestoreConfirm=false}) { Text("取消") } }
+            )
             if (showPasswordGenerator) PasswordGeneratorDialog(
                 onClose = { showPasswordGenerator = false },
                 onUse = { password ->
@@ -860,4 +914,18 @@ private fun copySecret(context: Context, scope: kotlinx.coroutines.CoroutineScop
         val current = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull()
         if (current == value) clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
     }
+}
+
+private fun readBackupBytes(input: java.io.InputStream, maxBytes: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    var total = 0
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        total += count
+        require(total <= maxBytes) { "备份文件超过 100 MB 限制" }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }
