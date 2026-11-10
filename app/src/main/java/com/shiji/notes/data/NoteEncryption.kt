@@ -18,3 +18,9 @@ fun NoteVersionEntity.decryptFields(key: ByteArray) = copy(
     title = Security.decryptNoteField(key, title),
     body = Security.decryptNoteField(key, body)
 )
+
+fun NoteEntity.matchesQuery(query: String): Boolean {
+    val normalized = query.trim()
+    if (normalized.isEmpty()) return true
+    return title.contains(normalized, ignoreCase = true) || body.contains(normalized, ignoreCase = true)
+}
